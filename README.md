@@ -139,17 +139,68 @@ order after the provider confirms it.
 
 ---
 
-## Tests
+## Deploying to Netlify
 
-```bash
-npm run smoke          # API, auth, orders, admin, email and static pages
-npm run test:browser   # renders each page in headless Chrome and checks the DOM
-npm run test:journey   # drives the full UI: sign in, bag, checkout, reopen, sign out, console
-```
+Netlify has no long-running Node server, so the Express app runs as a serverless function behind
+`serverless-http`. Static files and images are served by the CDN from `public/`.
 
-`test:browser` and `test:journey` need Chrome on the machine and drive it over the DevTools
-protocol. Set `CHROME_PATH` if it is installed somewhere unusual. All three run against demo mode,
-so they need no credentials.
+`netlify.toml` wires it up: the build runs `npm run vendor` (which copies the Supabase browser SDK
+out of `node_modules` into `public/vendor`, because a function cannot serve static assets from
+`node_modules`), the publish directory is `public`, and `/api/*` is redirected to the function.
+
+### Connect the repository
+
+1. In Netlify, **Add new site → Import an existing project**, and pick `Adamsteni/Sultan-Website`.
+2. Leave build command and publish directory as they are — `netlify.toml` sets both.
+3. Deploy. The first build installs dependencies and copies the vendor file.
+
+### Set the environment variables
+
+Site configuration → Environment variables. Add all of these:
+
+| Variable | Value |
+| --- | --- |
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `GOOGLE_CLIENT_ID` | Google OAuth web client ID |
+| `MAILGUN_API_KEY` | Mailgun API key |
+| `MAILGUN_DOMAIN` | Your Mailgun sending domain |
+| `MAILGUN_FROM` | `Sultan Clothing <orders@yourdomain>` |
+| `SHOP_EMAIL` | The address that receives order notifications |
+| `ADMIN_EMAILS` | Your own email address |
+| `SITE_URL` | `https://your-site.netlify.app` |
+
+Leave `DEMO_MODE` unset. If the service role key is missing the app falls back to the in-memory
+demo store, which **does not work on Netlify** because each request runs in a fresh function and
+would lose every order. The app detects this and `/api/health` returns 503 with an explanation
+rather than quietly dropping orders.
+
+### Run the database once
+
+Run `db/schema.sql` in the Supabase SQL editor, then `npm run seed` from your machine against the
+same project. Netlify deploys code only; it does not touch your database.
+
+### After deploying
+
+- Sign in and confirm the console at `/admin.html` opens.
+- Check `https://your-site.netlify.app/api/health`. It should say `"status":"ok"` and
+  `"database":{"ok":true,"detail":"supabase"}`.
+- Add `https://your-site.netlify.app` as an authorised JavaScript origin in the Google Cloud OAuth
+  client, then redeploy.
+- Once a custom domain is attached, add that domain as an origin too and update `SITE_URL`.
+
+### Netlify limits worth knowing
+
+- Functions cap at 26 seconds of runtime and 6 MB zipped. The Mailgun calls are the slowest step
+  in placing an order.
+- The free plan allows 125k function invocations a month.
+- Cold starts of a few hundred milliseconds are normal on first hit after idle.
+
+### Deploying somewhere with a real server
+
+Render, Railway and Fly.io all run `npm start` with no adapter and no Netlify limits. The only
+requirement is setting the same environment variables.
 
 ---
 
@@ -157,10 +208,14 @@ so they need no credentials.
 
 ```
 db/schema.sql              tables, row level security, place_order
+netlify/functions/api.js   Express app wrapped for Netlify Functions
+netlify.toml               build, publish, redirects and headers
 scripts/seed.js            catalogue loader
+scripts/prepare-vendor.js  copies the Supabase SDK into public/vendor
 scripts/smoke.js           API-level checks
 scripts/browser-check.js   page rendering checks
 scripts/journey.js         end-to-end UI checks
+scripts/netlify-check.js   invokes the function the way Netlify does
 server/index.js            Express app, API routes, error handling
 server/config.js           environment configuration and the admin allowlist
 server/auth.js             Supabase and demo session verification
@@ -176,12 +231,17 @@ delivery is ₦7,500.
 
 ---
 
-## Deploying
+## Payments, security and operations
 
-Run it on any host that runs Node 20+ with a persistent filesystem, for example Render, Railway or
-a small VPS. Set the environment variables in the host's dashboard, set `SITE_URL` to the public
-URL, add that URL as an authorised origin in the Google client, and run the schema and seed once
-against the production Supabase project.
+Card entry is validated in test mode only: the number must pass a Luhn check, the expiry must be a
+future `MM/YY`, and the security code must be 3 or 4 digits. No card is charged and no card data is
+stored. Customers can also choose pay on delivery.
 
-Use a process manager so the server restarts on failure, and keep the service role key server
-side only.
+To take real payments, put a payment provider in front of `POST /api/orders` and only create the
+order after the provider confirms it.
+
+Keep the service role key server side only. `/api/config` deliberately sends only the Supabase URL
+and anon key to the browser. Admin access is checked on the server for every admin request, so
+hiding the link in the browser is not what keeps the console closed.
+
+On a host with a real server, use a process manager so it restarts on failure.

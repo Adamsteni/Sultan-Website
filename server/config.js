@@ -15,7 +15,12 @@ const supabaseUrl = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
+// Netlify runs each request in a fresh function, so nothing survives between calls. The
+// in-memory demo store would silently lose every order, so refuse to pretend it works.
+const isServerless = Boolean(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
 export const config = {
+  isServerless,
   port: Number(process.env.PORT || 3000),
   siteUrl: (process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/+$/, ""),
   shopName: process.env.SHOP_NAME || "Sultan Clothing",

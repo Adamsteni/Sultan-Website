@@ -6,3 +6,6 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 *.log
+
+# Copied out of node_modules by `npm run vendor` at build time.
+public/vendor/

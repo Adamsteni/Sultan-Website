@@ -36,6 +36,19 @@ const ok = (res, payload) => res.json(payload);
 const wrap = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
 app.get("/api/health", wrap(async (_req, res) => {
+  if (config.isServerless && config.demoMode) {
+    return res.status(503).json({
+      status: "misconfigured",
+      mode: "demo",
+      error:
+        "The shop is deployed without SUPABASE_SERVICE_ROLE_KEY, so orders cannot be stored. Set the Supabase variables in the Netlify site settings.",
+      database: { ok: false, detail: "in-memory demo store is not usable on serverless hosting" },
+      mailgun: { configured: mailer.enabled },
+      integrations: adminChecklist,
+      time: new Date().toISOString()
+    });
+  }
+
   let database = { ok: false, detail: repository.mode === "memory" ? "in-memory demo store" : "unreachable" };
   if (repository.mode === "supabase") {
     try {
@@ -262,7 +275,10 @@ app.get("/api/admin/orders.csv", requireAdmin, wrap(async (_req, res) => {
   res.send(csv);
 }));
 
+// Locally the SDK is served from node_modules; on Netlify it is copied into public/vendor
+// by `npm run vendor` and served as a static file, since functions cannot expose node_modules.
 app.use("/vendor", express.static(vendorDir, { immutable: true, maxAge: "7d" }));
+app.use("/vendor", express.static(path.join(publicDir, "vendor"), { immutable: true, maxAge: "7d" }));
 app.use(express.static(publicDir, { extensions: ["html"] }));
 
 app.use("/api", (_req, res) => res.status(404).json({ error: "Unknown endpoint." }));
@@ -280,15 +296,23 @@ app.use((error, req, res, _next) => {
   });
 });
 
-app.listen(config.port, () => {
-  const banner = config.demoMode
-    ? "demo mode (in-memory store, mail logged to console)"
-    : `live (supabase, mail ${mailer.enabled ? "on" : "off"})`;
-  console.log(`\n  ${config.shopName} — ${banner}`);
-  console.log(`  http://localhost:${config.port}\n`);
-  for (const item of adminChecklist) {
-    console.log(`  ${item.ok ? "[ok]  " : "[todo]"} ${item.name}${item.ok ? "" : ` — ${item.hint}`}`);
-  }
-  if (config.adminEmails.length) console.log(`\n  Shop owner: ${config.adminEmails.join(", ")}`);
-  console.log("");
-});
+export { app, repository, mailer };
+
+// Only listen when this file is run directly. Netlify imports it and hands `app` to a
+// function, where binding a port would fail.
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (isDirectRun) {
+  app.listen(config.port, () => {
+    const banner = config.demoMode
+      ? "demo mode (in-memory store, mail logged to console)"
+      : `live (supabase, mail ${mailer.enabled ? "on" : "off"})`;
+    console.log(`\n  ${config.shopName} — ${banner}`);
+    console.log(`  http://localhost:${config.port}\n`);
+    for (const item of adminChecklist) {
+      console.log(`  ${item.ok ? "[ok]  " : "[todo]"} ${item.name}${item.ok ? "" : ` — ${item.hint}`}`);
+    }
+    if (config.adminEmails.length) console.log(`\n  Shop owner: ${config.adminEmails.join(", ")}`);
+    console.log("");
+  });
+}
