@@ -245,14 +245,13 @@ body.drawer-open{overflow:hidden}
 .social-button:disabled{opacity:.55;cursor:default}
 .google-wrap{position:relative;width:100%;cursor:pointer}
 .google-button{
-  display:flex;align-items:center;justify-content:center;gap:13px;width:100%;min-height:58px;
-  padding:0 24px;border:1px solid var(--ink);background:#fff;color:var(--ink);
-  font-size:12px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
-  transition:background .22s ease,color .22s ease,box-shadow .22s ease;
+  display:flex;align-items:center;justify-content:center;gap:11px;width:100%;min-height:46px;
+  padding:0 20px;border:1px solid var(--line);background:var(--paper);color:var(--ink);
+  font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  transition:border-color .2s ease,background .22s ease,color .22s ease,box-shadow .22s ease;
 }
-.google-button-icon{width:22px;height:22px;flex:none}
-.google-wrap:hover .google-button{background:var(--ink);color:#fff;box-shadow:0 12px 26px rgba(0,0,0,.16)}
-.google-wrap:hover .google-button-icon{filter:brightness(0) invert(1)}
+.google-button-icon{width:18px;height:18px;flex:none}
+.google-wrap:hover .google-button{border-color:var(--foreground)}
 .google-wrap:focus-within .google-button{outline:2px solid var(--accent);outline-offset:3px}
 .google-slot{position:absolute;top:0;left:0;transform-origin:top left;opacity:0}
 .google-slot[hidden]{display:none}
@@ -466,7 +465,7 @@ legend{margin:0 0 16px;padding:0;font-size:11px;font-weight:700;letter-spacing:.
 .auth-card .auth-form{padding:0;overflow:visible}
 .auth-card .auth-divider{margin:22px 0}
 .google-wrap{position:relative;width:100%}
-.google-wrap .google-button{width:100%}
+.google-wrap .google-button{width:100%;margin-top:0}
 .auth-fallback{margin-top:8px}
 
 /* ---------- checkout ---------- */

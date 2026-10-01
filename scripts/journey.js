@@ -24,7 +24,7 @@ const check = (label, condition, detail = "") => {
 
 const server = spawn(process.execPath, ["server/index.js"], {
   cwd: process.cwd(),
-  env: { ...process.env, PORT: port, DEMO_MODE: "true", ADMIN_EMAILS: adminEmail },
+  env: { ...process.env, PORT: port, DEMO_MODE: "true", ADMIN_EMAILS: adminEmail, MAILGUN_API_KEY: "", MAILGUN_DOMAIN: "" },
   stdio: ["ignore", "pipe", "pipe"]
 });
 let serverLog = "";

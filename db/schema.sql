@@ -97,6 +97,10 @@ create table if not exists public.newsletter_subscribers (
 -- key (which cannot supply a user id of its own). Prices, stock and totals are
 -- always recomputed from the products table here, so a tampered browser payload
 -- cannot change what a customer is charged.
+--
+-- Postgres requires that every parameter following one with a default also has a
+-- default, so the optional arguments sit last. Callers pass everything by name, so
+-- the order here does not matter to them.
 -- -----------------------------------------------------------------------------
 create or replace function public.place_order(
   p_user_id         uuid,
@@ -104,14 +108,14 @@ create or replace function public.place_order(
   p_full_name       text,
   p_phone           text,
   p_address_line1   text,
-  p_address_line2   text default null,
   p_city            text,
   p_state           text,
+  p_items           jsonb,
+  p_address_line2   text default null,
   p_notes           text default null,
   p_payment_method  text default 'card',
   p_payment_ref     text default null,
-  p_delivery_kobo   integer default 0,
-  p_items           jsonb
+  p_delivery_kobo   integer default 0
 )
 returns public.orders
 language plpgsql
