@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Secure checkout at Sultan Clothing." />
+  <meta name="robots" content="noindex" />
+  <title>Checkout — Sultan Clothing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="module" src="./js/checkout.js"></script>
+</head>
+
+<body>
+  <div class="announcement">
+    <span>Free delivery on orders above ₦150,000</span>
+    <div>
+      <a href="./index.html#newsletter">Newsletter</a>
+      <a href="./account.html">Track order</a>
+      <a href="#footer">Help</a>
+    </div>
+  </div>
+
+  <p class="mode-banner" id="modeBanner" hidden>
+    <strong>Demo mode</strong>
+    <span data-mode-detail></span>
+  </p>
+
+  <header class="site-header">
+    <button class="icon-button menu-button" id="menuButton" aria-label="Open menu" aria-expanded="false" hidden><span></span><span></span><span></span></button>
+
+    <a href="./index.html" class="logo"><img src="./img/logo.png" alt="Sultan" /></a>
+
+    <div class="header-actions">
+      <a class="action" id="ordersLink" href="./account.html" hidden>Orders</a>
+      <a class="action" id="adminLink" href="./admin.html" hidden>Admin</a>
+      <span class="checkout-steps" aria-hidden="true"><em>Bag</em> · Checkout · Confirmation</span>
+      <a class="action account-button" id="accountButton" href="./account.html" aria-label="Sign in">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21c1-5 4-7 8-7s7 2 8 7"></path>
+        </svg><span>Sign in</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="auth-card" id="authGate" hidden>
+      <p class="section-label">Checkout</p>
+      <h1>Sign in to place your order</h1>
+      <p class="auth-intro">
+        We keep every order against your account, so you can track it, reorder and resend the confirmation whenever you
+        need it.
+      </p>
+      <div class="auth-social">
+        <div class="google-wrap" id="googleWrap" data-google-only></div>
+      </div>
+      <div class="auth-divider" data-email-only><span>or</span></div>
+      <form class="auth-form" id="gateForm">
+        <div class="auth-field" id="gateNameField" hidden>
+          <label for="gateName">Full name</label>
+          <input id="gateName" type="text" autocomplete="name" placeholder="Your name" />
+        </div>
+        <div class="auth-field">
+          <label for="gateEmail">Email</label>
+          <input id="gateEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="auth-field" data-email-only>
+          <label for="gatePassword">Password</label>
+          <input id="gatePassword" type="password" placeholder="At least 6 characters" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="button button-dark auth-submit" id="gateSubmit">Sign in</button>
+        <p class="auth-switch" data-email-only><span id="gatePrompt">New to Sultan?</span>
+          <button type="button" id="gateToggle">Create an account</button>
+        </p>
+      </form>
+      <p class="auth-message" id="gateMessage" hidden></p>
+    </section>
+
+    <section class="checkout" id="checkout" hidden>
+      <div class="checkout-main">
+        <p class="section-label">Checkout</p>
+        <h1>Where should we send it?</h1>
+
+        <p class="notice notice-success" id="signedInAs" hidden></p>
+
+        <form class="checkout-form" id="checkoutForm" novalidate>
+          <fieldset>
+            <legend>Contact</legend>
+            <div class="field-row">
+              <div class="auth-field">
+                <label for="fullName">Full name</label>
+                <input id="fullName" name="fullName" type="text" autocomplete="name" required />
+                <p class="field-error" data-error="fullName" hidden></p>
+              </div>
+              <div class="auth-field">
+                <label for="phone">Phone</label>
+                <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="0803 000 0000" required />
+                <p class="field-error" data-error="phone" hidden></p>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Delivery address</legend>
+            <div class="auth-field">
+              <label for="addressLine1">Address</label>
+              <input id="addressLine1" name="addressLine1" type="text" autocomplete="address-line1" required />
+              <p class="field-error" data-error="addressLine1" hidden></p>
+            </div>
+            <div class="auth-field">
+              <label for="addressLine2">Apartment, suite <span class="optional">optional</span></label>
+              <input id="addressLine2" name="addressLine2" type="text" autocomplete="address-line2" />
+            </div>
+            <div class="field-row">
+              <div class="auth-field">
+                <label for="city">City</label>
+                <input id="city" name="city" type="text" autocomplete="address-level2" required />
+                <p class="field-error" data-error="city" hidden></p>
+              </div>
+              <div class="auth-field">
+                <label for="state">State</label>
+                <select id="state" name="state" autocomplete="address-level1" required></select>
+                <p class="field-error" data-error="state" hidden></p>
+              </div>
+            </div>
+            <div class="auth-field">
+              <label for="notes">Delivery note <span class="optional">optional</span></label>
+              <textarea id="notes" name="notes" rows="3" maxlength="500" placeholder="Gate colour, best time to call…"></textarea>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Payment</legend>
+            <div class="payment-options">
+              <label class="radio">
+                <input type="radio" name="paymentMethod" value="card" checked />
+                <span><strong>Card</strong><small>Visa, Mastercard, Verve</small></span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="paymentMethod" value="cod" />
+                <span><strong>Pay on delivery</strong><small>Cash or transfer when it arrives</small></span>
+              </label>
+            </div>
+
+            <div id="cardFields">
+              <div class="auth-field">
+                <label for="cardNumber">Card number</label>
+                <input id="cardNumber" name="cardNumber" inputmode="numeric" autocomplete="cc-number"
+                  placeholder="4242 4242 4242 4242" />
+                <p class="field-error" data-error="cardNumber" hidden></p>
+              </div>
+              <div class="auth-field">
+                <label for="cardName">Name on card</label>
+                <input id="cardName" name="cardName" autocomplete="cc-name" />
+                <p class="field-error" data-error="cardName" hidden></p>
+              </div>
+              <div class="field-row">
+                <div class="auth-field">
+                  <label for="expiry">Expiry</label>
+                  <input id="expiry" name="expiry" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" />
+                  <p class="field-error" data-error="expiry" hidden></p>
+                </div>
+                <div class="auth-field">
+                  <label for="cvc">Security code</label>
+                  <input id="cvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" />
+                  <p class="field-error" data-error="cvc" hidden></p>
+                </div>
+              </div>
+              <p class="note">Card entry is validated in test mode only. No card is charged and no card data is stored.</p>
+            </div>
+          </fieldset>
+
+          <p class="auth-message" id="formMessage" hidden></p>
+        </form>
+      </div>
+
+      <aside class="checkout-summary">
+        <h2>Order summary</h2>
+        <div class="summary-items" id="summaryItems"></div>
+        <dl class="summary-totals">
+          <div><dt>Subtotal</dt><dd id="summarySubtotal">—</dd></div>
+          <div><dt>Delivery</dt><dd id="summaryDelivery">—</dd></div>
+          <div class="summary-grand"><dt>Total</dt><dd id="summaryTotal">—</dd></div>
+        </dl>
+        <p class="summary-note" id="summaryNote"></p>
+        <button type="button" class="button button-dark" id="placeOrder">Place order</button>
+        <p class="auth-intro"><a class="button-link" href="./index.html#shop">Keep shopping</a></p>
+      </aside>
+    </section>
+
+    <section class="cart-empty" id="emptyCart" hidden>
+      <p>Your bag is empty, so there is nothing to check out.</p>
+      <a class="button button-dark" href="./index.html#shop">Shop the collection</a>
+    </section>
+  </main>
+
+  <footer id="footer">
+    <div class="footer-main">
+      <p class="footer-logo">Sultan</p>
+      <nav><a href="./index.html#shop">Shop</a><a href="./account.html">Orders</a><a href="./index.html#top">About</a><a
+          href="./index.html#newsletter">Contact</a></nav>
+    </div>
+
+    <div class="footer-meta"><span>&copy; 2026 Sultan Clothing</span><span>Designed for everyday movement.</span></div>
+  </footer>
+</body>
+
+</html>

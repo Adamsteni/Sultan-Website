@@ -1,0 +1,24 @@
+{
+  "name": "sultan-shop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sultan Clothing — shop website with Supabase, Mailgun and Google sign-in",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "seed": "node scripts/seed.js",
+    "smoke": "node scripts/smoke.js",
+    "test:browser": "node scripts/browser-check.js",
+    "test:journey": "node scripts/journey.js",
+    "check": "node --check server/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  }
+}

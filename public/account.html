@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Your Sultan Clothing account: sign in, track orders and resend confirmations." />
+  <title>Your account — Sultan Clothing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="module" src="./js/account.js"></script>
+</head>
+
+<body>
+  <div class="announcement">
+    <span>Free delivery on orders above ₦150,000</span>
+    <div>
+      <a href="./index.html#newsletter">Newsletter</a>
+      <a href="#orders">Track order</a>
+      <a href="#footer">Help</a>
+    </div>
+  </div>
+
+  <p class="mode-banner" id="modeBanner" hidden>
+    <strong>Demo mode</strong>
+    <span data-mode-detail></span>
+  </p>
+
+  <header class="site-header">
+    <nav class="desktop-nav" aria-label="Main navigation">
+      <a href="./index.html#shop">Men</a>
+      <a href="./index.html#shop">Women</a>
+      <a href="./index.html#shop">Essentials</a>
+      <a href="./index.html#shop">New in</a>
+    </nav>
+
+    <button class="icon-button menu-button" id="menuButton" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+
+    <a href="./index.html" class="logo"><img src="./img/logo.png" alt="Sultan" /></a>
+
+    <div class="header-actions">
+      <a class="action" id="ordersLink" href="./account.html" hidden>Orders</a>
+      <a class="action" id="adminLink" href="./admin.html" hidden>Admin</a>
+      <button class="action cart-button" id="cartButton" aria-label="Shopping bag with 0 items">
+        <svg viewBox="0 0 24 24">
+          <path d="M5 8h14l-1 13H6L5 8Z"></path>
+          <path d="M9 9V6a3 3 0 0 1 6 0v3"></path>
+        </svg><span>Cart (<em id="cartCount">0</em>)</span>
+      </button>
+      <a class="action account-button" id="accountButton" href="./account.html" aria-label="Sign in">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21c1-5 4-7 8-7s7 2 8 7"></path>
+        </svg><span>Sign in</span>
+      </a>
+    </div>
+
+    <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
+      <a href="./index.html#shop">Men</a>
+      <a href="./index.html#shop">Women</a>
+      <a href="./index.html#shop">Essentials</a>
+      <a href="./index.html#shop">New in</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="auth-card" id="authCard">
+      <p class="section-label">Your account</p>
+      <h1 id="authHeading">Sign in to see your orders</h1>
+      <p class="auth-intro" id="authIntro">
+        Your bag, your orders and your addresses are kept to your account. Sign in with Google or your email address.
+      </p>
+
+      <div class="auth-social">
+        <div class="google-wrap" id="googleWrap" data-google-only></div>
+      </div>
+
+      <div class="auth-divider" data-email-only><span>or</span></div>
+
+      <form class="auth-form" id="authForm">
+        <div class="auth-field" id="nameField" hidden>
+          <label for="authName">Full name</label>
+          <input id="authName" type="text" autocomplete="name" placeholder="Your name" />
+        </div>
+        <div class="auth-field">
+          <label for="authEmail">Email</label>
+          <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="auth-field" data-email-only>
+          <label for="authPassword">Password</label>
+          <input id="authPassword" type="password" placeholder="At least 6 characters" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="button button-dark auth-submit" id="authSubmit">Sign in</button>
+        <p class="auth-switch" data-email-only><span id="switchPrompt">New to Sultan?</span>
+          <button type="button" id="authToggle">Create an account</button>
+        </p>
+        <p class="auth-message" id="authMessage" hidden></p>
+      </form>
+    </section>
+
+    <section class="account" id="accountCard" hidden>
+      <div class="account-head">
+        <div>
+          <p class="section-label">Signed in</p>
+          <h1 id="accountName"></h1>
+          <span class="badge" id="ownerBadge" hidden>Shop owner</span>
+          <p class="auth-intro" id="accountEmail"></p>
+        </div>
+        <div class="account-head-actions">
+          <a class="button" id="adminLinkCard" href="./admin.html" hidden>Shop admin</a>
+          <button type="button" class="button button-outline" id="logoutButton">Sign out</button>
+        </div>
+      </div>
+
+      <p class="notice notice-success" id="placedBanner" hidden></p>
+
+      <div class="section-heading orders-heading">
+        <h2>Your orders</h2>
+        <span id="ordersCount"></span>
+      </div>
+
+      <div id="ordersList" class="orders"></div>
+
+      <p class="cart-empty" id="ordersEmpty" hidden>
+        You have not placed an order yet. <a class="button-link" href="./index.html#shop">Start shopping</a>
+      </p>
+
+      <p class="cart-empty" id="ordersLoading">Loading your orders…</p>
+    </section>
+  </main>
+
+  <footer id="footer">
+    <div class="footer-main">
+      <p class="footer-logo">Sultan</p>
+      <nav><a href="./index.html#shop">Shop</a><a href="#orders">Orders</a><a href="./index.html#top">About</a><a
+          href="./index.html#newsletter">Contact</a></nav>
+    </div>
+
+    <div class="footer-meta"><span>&copy; 2026 Sultan Clothing</span><span>Designed for everyday movement.</span></div>
+  </footer>
+</body>
+
+</html>

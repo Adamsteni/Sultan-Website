@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sultan Clothing shop owner console." />
+  <meta name="robots" content="noindex" />
+  <title>Shop console — Sultan Clothing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="module" src="./js/admin.js"></script>
+</head>
+
+<body>
+  <p class="mode-banner" id="modeBanner" hidden>
+    <strong>Demo mode</strong>
+    <span data-mode-detail></span>
+  </p>
+
+  <header class="site-header">
+    <nav class="desktop-nav" aria-label="Main navigation">
+      <a href="./index.html#shop">Shop</a>
+      <a href="./account.html">Customer view</a>
+    </nav>
+
+    <a href="./admin.html" class="logo"><img src="./img/logo.png" alt="Sultan" /></a>
+
+    <div class="header-actions">
+      <span class="badge" id="ownerBadge">Shop owner</span>
+      <button class="action" id="refreshButton" aria-label="Refresh data">
+        <svg viewBox="0 0 24 24">
+          <path d="M20 12a8 8 0 1 1-2.3-5.6"></path>
+          <path d="M20 4v5h-5"></path>
+        </svg><span>Refresh</span>
+      </button>
+      <a class="action account-button" id="accountButton" href="./account.html">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21c1-5 4-7 8-7s7 2 8 7"></path>
+        </svg><span>Account</span>
+      </a>
+      <button class="action" id="logoutButton">
+        <svg viewBox="0 0 24 24">
+          <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"></path>
+          <path d="M10 16l-4-4 4-4M6 12h9"></path>
+        </svg><span>Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="page admin">
+    <section class="admin-lock" id="adminLock" hidden>
+      <p class="section-label">Restricted</p>
+      <h1>Shop owner sign-in required</h1>
+      <p class="auth-intro" id="lockReason">
+        This console is only for the shop owner. Add your Google account to <code>ADMIN_EMAILS</code> in
+        <code>.env</code> and sign in.
+      </p>
+      <div class="auth-social">
+        <div class="google-wrap" id="googleWrap" data-google-only></div>
+      </div>
+      <div class="auth-divider" data-email-only><span>or</span></div>
+      <form class="auth-form" id="gateForm">
+        <div class="auth-field">
+          <label for="gateEmail">Email</label>
+          <input id="gateEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="auth-field" data-email-only>
+          <label for="gatePassword">Password</label>
+          <input id="gatePassword" type="password" placeholder="At least 6 characters" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="button button-dark auth-submit" id="gateSubmit">Sign in</button>
+      </form>
+      <p class="auth-message" id="gateMessage" hidden></p>
+    </section>
+
+    <section id="adminBody" hidden>
+      <div class="admin-head">
+        <div>
+          <p class="section-label">Shop console</p>
+          <h1>Orders, stock and the list.</h1>
+        </div>
+        <a class="button button-outline" href="/api/admin/orders.csv" id="exportButton">Export orders (CSV)</a>
+      </div>
+
+      <p class="notice" id="storeNotice" hidden></p>
+
+      <div class="stat-grid" id="statGrid"></div>
+
+      <div class="admin-tabs" role="tablist" aria-label="Console sections">
+        <button role="tab" class="tab active" data-tab="orders" aria-selected="true">Orders</button>
+        <button role="tab" class="tab" data-tab="products" aria-selected="false">Products</button>
+        <button role="tab" class="tab" data-tab="subscribers" aria-selected="false">Subscribers</button>
+        <button role="tab" class="tab" data-tab="health" aria-selected="false">Integrations</button>
+      </div>
+
+      <section class="admin-panel" data-panel="orders">
+        <div class="panel-head">
+          <h2>Orders</h2>
+          <div class="filter-chips" id="orderFilters" role="group" aria-label="Filter orders by status">
+            <button type="button" class="chip active" data-status="all">All</button>
+            <button type="button" class="chip" data-status="confirmed">Confirmed</button>
+            <button type="button" class="chip" data-status="shipped">Shipped</button>
+            <button type="button" class="chip" data-status="delivered">Delivered</button>
+            <button type="button" class="chip" data-status="cancelled">Cancelled</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Placed</th>
+                <th>Customer</th>
+                <th>Deliver to</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Confirmation</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+        </div>
+        <p class="cart-empty" id="ordersNone" hidden>No orders yet.</p>
+      </section>
+
+      <section class="admin-panel" data-panel="products" hidden>
+        <div class="panel-head">
+          <h2>Products</h2>
+          <p class="auth-intro">Prices are stored in kobo. Editing here changes the live shop immediately.</p>
+        </div>
+
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Piece</th>
+                <th>Category</th>
+                <th>Price (kobo)</th>
+                <th>Stock</th>
+                <th>Featured</th>
+                <th>Live</th>
+                <th>Save</th>
+              </tr>
+            </thead>
+            <tbody id="productsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-panel" data-panel="subscribers" hidden>
+        <div class="panel-head">
+          <h2>Newsletter subscribers</h2>
+          <span id="subscriberCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Email</th><th>Joined</th><th>Welcome email</th></tr>
+            </thead>
+            <tbody id="subscribersBody"></tbody>
+          </table>
+        </div>
+        <p class="cart-empty" id="subscribersNone" hidden>No subscribers yet.</p>
+      </section>
+
+      <section class="admin-panel" data-panel="health" hidden>
+        <div class="panel-head"><h2>Integrations</h2></div>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Service</th><th>Status</th><th>Detail</th></tr></thead>
+            <tbody id="healthBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer id="footer">
+    <div class="footer-meta"><span>&copy; 2026 Sultan Clothing</span><span>Shop console</span></div>
+  </footer>
+</body>
+
+</html>
