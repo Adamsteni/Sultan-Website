@@ -1,4 +1,15 @@
-import { handler } from "../netlify/functions/api.js";
+// Set before the app is imported. Static imports are hoisted, so a static import here would read
+// .env and pick up real credentials before these overrides could apply. A test must never send
+// real mail through a live provider.
+process.env.DEMO_MODE = "true";
+process.env.ADMIN_EMAILS = "owner@sultan.test";
+process.env.MAILGUN_API_KEY = "";
+process.env.MAILGUN_DOMAIN = "";
+process.env.SUPABASE_URL = "";
+process.env.SUPABASE_ANON_KEY = "";
+process.env.SUPABASE_SERVICE_ROLE_KEY = "";
+
+const { handler } = await import("../netlify/functions/api.js");
 
 // Netlify invokes a function as: handler(event, context) -> { statusCode, headers, body, isBase64Encoded }
 // with event.path carrying the original /api/* path. This exercises that exact contract.
@@ -44,9 +55,6 @@ const check = (label, condition, detail = "") => {
 };
 
 console.log("\nSultan — Netlify function\n");
-
-process.env.DEMO_MODE = "true";
-process.env.ADMIN_EMAILS = "owner@sultan.test";
 
 const health = await call("/api/health");
 check("the function answers /api/health", health.status === 200, health.text.slice(0, 200));

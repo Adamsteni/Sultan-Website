@@ -1,5 +1,3 @@
-import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
 import express from "express";
 import { config, adminChecklist } from "./config.js";
@@ -17,9 +15,11 @@ import {
 } from "./validate.js";
 import { deliveryFor, FREE_DELIVERY_THRESHOLD_KOBO, DELIVERY_FEE_KOBO } from "./data/catalogue.js";
 
-const require = createRequire(import.meta.url);
-const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(here, "..");
+// Netlify bundles this file as CommonJS, where `import.meta` does not exist, so the module
+// path cannot be derived from it. process.cwd() is the repo root locally and /var/task on a
+// function, and the static routes below are only reached when a real filesystem is present.
+const here = process.cwd();
+const root = path.resolve(here);
 const publicDir = path.join(root, "public");
 const vendorDir = path.join(root, "node_modules", "@supabase", "supabase-js", "dist", "umd");
 
@@ -298,9 +298,12 @@ app.use((error, req, res, _next) => {
 
 export { app, repository, mailer };
 
-// Only listen when this file is run directly. Netlify imports it and hands `app` to a
-// function, where binding a port would fail.
-const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+// Listen only when this file is the process entry point. Netlify imports it and hands `app` to
+// a function, where binding a port would fail, and tests import it too, which must not open a
+// socket. `import.meta` is unavailable in the CommonJS bundle, so compare argv against the path
+// this module is reached by.
+const entry = process.argv[1] ? path.resolve(process.argv[1]) : "";
+const isDirectRun = Boolean(entry) && /server[/\\]index\.js$/.test(entry);
 
 if (isDirectRun) {
   app.listen(config.port, () => {
