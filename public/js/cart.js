@@ -126,8 +126,8 @@ const mountDrawer = (id) => {
   document.body.append(...host.children);
   document
     .querySelector(`[data-drawer-close="${id}"]`)
-    .addEventListener("click", () => closeDrawer(id));
-  document.querySelector(`[data-drawer-backdrop="${id}"]`).addEventListener("click", () => closeDrawer(id));
+    .addEventListener("click", () => closeDrawers());
+  document.querySelector(`[data-drawer-backdrop="${id}"]`).addEventListener("click", () => closeDrawers());
 };
 
 export const openDrawer = (id) => {
