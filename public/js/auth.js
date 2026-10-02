@@ -220,20 +220,20 @@ export function renderGoogleButton(container, onSignedIn) {
     });
     container.innerHTML = `<div id="googleSlot"></div>`;
     const slot = container.querySelector("#googleSlot");
+
+    // Google renders into a fixed-width iframe, so ask for the real width instead of scaling it
+    // afterwards. A transform grows the painted button but not its layout box, which leaves the
+    // button overhanging its column and out of line with the fields below.
+    const width = Math.min(Math.max(Math.round(container.clientWidth) || 360, 200), 400);
     window.google.accounts.id.renderButton(slot, {
       type: "standard",
       theme: "outline",
       size: "large",
       shape: "rectangular",
       text: "continue_with",
-      width: 360
+      width
     });
-    const fit = () => {
-      const width = container.clientWidth;
-      if (width) slot.style.transform = `scale(${Math.min(width / 360, 1.6)})`;
-    };
-    fit();
-    window.addEventListener("resize", fit);
+    slot.style.width = `${width}px`;
     container.dataset.ready = "true";
   };
 

@@ -253,7 +253,9 @@ body.drawer-open{overflow:hidden}
 .google-button-icon{width:18px;height:18px;flex:none}
 .google-wrap:hover .google-button{border-color:var(--foreground)}
 .google-wrap:focus-within .google-button{outline:2px solid var(--accent);outline-offset:3px}
-.google-slot{position:absolute;top:0;left:0;transform-origin:top left;opacity:0}
+/* Holds Google's own sign-in iframe. It must stay in normal flow so it lines up with the form
+   fields, and it must stay visible: Google renders the button itself into this slot. */
+.google-slot{display:flex;width:100%;justify-content:flex-start}
 .google-slot[hidden]{display:none}
 .auth-divider{display:flex;align-items:center;gap:14px;margin:0;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
 .auth-divider::before,.auth-divider::after{content:"";height:1px;flex:1;background:var(--line)}
@@ -464,8 +466,11 @@ legend{margin:0 0 16px;padding:0;font-size:11px;font-weight:700;letter-spacing:.
 .auth-intro a{color:var(--ink)}
 .auth-card .auth-form{padding:0;overflow:visible}
 .auth-card .auth-divider{margin:22px 0}
+/* Google's button is 48px tall with size "large"; match it to the 46px form controls so the
+   social block and the email fields read as one column. */
 .google-wrap{position:relative;width:100%}
 .google-wrap .google-button{width:100%;margin-top:0}
+.google-wrap .google-slot iframe{border-radius:0}
 .auth-fallback{margin-top:8px}
 
 /* ---------- checkout ---------- */
