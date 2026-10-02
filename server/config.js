@@ -50,6 +50,8 @@ export const config = {
   demoMode: bool(process.env.DEMO_MODE) || !supabaseServiceRoleKey
 };
 
+// Only show a hint when the integration is actually missing, so a healthy deployment does not
+// read as a list of things still to do.
 export const adminChecklist = [
   {
     name: "Supabase",
@@ -66,7 +68,7 @@ export const adminChecklist = [
     ok: Boolean(config.mailgun.apiKey && config.mailgun.domain),
     hint: "Set MAILGUN_API_KEY, MAILGUN_DOMAIN and MAILGUN_FROM"
   }
-];
+].map((item) => ({ ...item, hint: item.ok ? "" : item.hint }));
 
 export const isAdminEmail = (email) =>
   Boolean(email) && config.adminEmails.includes(String(email).trim().toLowerCase());

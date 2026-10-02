@@ -115,6 +115,48 @@ The shop sends four emails: an order confirmation to the customer, a new-order n
 newsletter signup. If Mailgun is not configured, each message is logged instead of sent and the
 UI says so.
 
+### Why a sandbox domain is not enough to launch
+
+Mailgun's free tier creates a **sandbox domain** (`sandbox*.mailgun.org`) that only delivers to
+addresses explicitly listed under **Sending → Domains → Authorized recipients**. Mail to anyone else
+is rejected by Mailgun before it leaves their infrastructure.
+
+What this looks like in practice, from the Mailgun event log:
+
+```
+delivered  to=you@example.com    subject=Welcome to Sultan Clothing
+rejected   to=                   subject=Sultan Clothing - order SLT-2026-01001 confirmed
+```
+
+The order is still created and the customer sees success. The confirmation is simply never
+delivered, so the customer has no record of their order and no reason to trust the payment went
+through. This is a Mailgun rule, not a fault in the code, and no code change fixes it.
+
+Two further reasons a real domain is needed:
+
+- **Deliverability.** Gmail, Outlook and Yahoo reject mail from unconfigured senders. SPF and DKIM
+  records have to be added at the registrar's DNS, which is only possible for a domain you control.
+- **Sender address.** Order confirmations would come from a `sandbox*.mailgun.org` address rather
+  than something from the shop's own name.
+
+### Moving to a real domain
+
+1. Buy a domain from any registrar. This is the only purchase the shop needs, and it costs roughly
+   $10–15 a year.
+2. In Mailgun, **Sending → Domains → Add domain**, then choose a region and add the two DNS
+   records Mailgun gives you (TXT for verification, then SPF and DKIM).
+3. Update `MAILGUN_DOMAIN` and `MAILGUN_FROM` in `.env` and in the Netlify environment variables:
+
+   ```
+   MAILGUN_DOMAIN=mg.yourdomain.com
+   MAILGUN_FROM=Sultan Clothing <orders@mg.yourdomain.com>
+   ```
+
+4. Redeploy, then confirm under **Sending → Logs** that new messages show `delivered` for a
+   recipient who is not an authorised recipient on the sandbox.
+
+Nothing else in the codebase changes. The same four emails start reaching real customers.
+
 ---
 
 ## Owner access
@@ -201,6 +243,73 @@ same project. Netlify deploys code only; it does not touch your database.
 
 Render, Railway and Fly.io all run `npm start` with no adapter and no Netlify limits. The only
 requirement is setting the same environment variables.
+
+---
+
+## Production status
+
+Recorded so the next person knows exactly what is finished and what is not.
+
+### Working and verified
+
+| Area | How it was confirmed |
+| --- | --- |
+| Catalogue, product pages, filters | `test:browser`, `test:journey` |
+| Add to cart, quantities, size, persistence across reloads | `test:journey` |
+| Checkout, Nigerian states, delivery threshold | `test:journey` |
+| Sign in, sign out, reopen, sign in again, orders still there | `test:journey` |
+| Order storage in Supabase | `/api/health` reports `"detail":"supabase"` |
+| Google sign-in | Working live against Google Cloud OAuth |
+| Mailgun | Delivering; `Sending → Logs` shows `delivered` |
+| Admin console and CSV export | `smoke`, `netlify-check` |
+| Serverless deployment | `netlify-check` invokes the function as Netlify does |
+
+### Known gaps
+
+**Customer confirmation emails do not arrive.** Mailgun's sandbox domain rejects any recipient that
+is not an authorised recipient. The integration is complete and correct; the delivery restriction is
+a Mailgun account limit. Fixing it needs a purchased domain — see
+[Why a sandbox domain is not enough to launch](#why-a-sandbox-domain-is-not-enough-to-launch).
+
+**No payment is taken.** Card details are validated in test mode and discarded. Nothing is charged
+and no card data is stored, so the shop cannot yet accept money by card. Customers can pay on
+delivery.
+
+**Test users are created in Supabase.** Anyone testing sign-in will appear under **Authentication →
+Users** in the Supabase dashboard. Delete them when finished.
+
+### Verifying a deployment
+
+```
+https://your-site.netlify.app/api/health
+```
+
+A healthy deployment returns `"status":"ok"` with `"database":{"ok":true,"detail":"supabase"}` and
+all three integrations reporting `ok`.
+
+If it returns `"status":"misconfigured"`, the function has no environment variables. The response
+also includes an `env` field naming the variables that arrived and the length of each value, which
+locates the problem without exposing any secret.
+
+A site can still render its pages while the API is broken, so check this endpoint rather than judging
+by whether the homepage looks right.
+
+---
+
+## Rotating credentials
+
+Because these keys have been shared in development conversations and pasted into Netlify, rotate
+them before taking real orders:
+
+- **Supabase** — Project Settings → API Keys → reset the service role and anon keys, then update
+  `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_ANON_KEY` in Netlify and redeploy.
+- **Google** — APIs & Services → Credentials → recreate the client secret. The client ID can stay.
+- **Mailgun** — Sending → API Keys → create a new key and delete the old one.
+- **Netlify** — remember to mark `SUPABASE_SERVICE_ROLE_KEY` and `MAILGUN_API_KEY` as **Secret** so
+  their values never appear in the UI, the API, the CLI or build logs.
+
+`netlify-upload.env` holds real credentials for uploading to Netlify. It is gitignored, but delete it
+once the upload succeeds.
 
 ---
 
