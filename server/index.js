@@ -37,6 +37,13 @@ const wrap = (handler) => (req, res, next) => Promise.resolve(handler(req, res, 
 
 app.get("/api/health", wrap(async (_req, res) => {
   if (config.isServerless && config.demoMode) {
+    // Only the variable names, never values, so a deployment can be checked for missing or
+    // mis-scoped configuration without exposing credentials.
+    const present = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "GOOGLE_CLIENT_ID", "MAILGUN_API_KEY", "MAILGUN_DOMAIN", "MAILGUN_FROM", "SHOP_EMAIL", "ADMIN_EMAILS", "SITE_URL"].filter((name) => Boolean(process.env[name]));
+    const lengths = Object.fromEntries(
+      present.map((name) => [name, (process.env[name] || "").length])
+    );
+
     return res.status(503).json({
       status: "misconfigured",
       mode: "demo",
@@ -45,6 +52,8 @@ app.get("/api/health", wrap(async (_req, res) => {
       database: { ok: false, detail: "in-memory demo store is not usable on serverless hosting" },
       mailgun: { configured: mailer.enabled },
       integrations: adminChecklist,
+      env: { present, lengths },
+      cwd: process.cwd(),
       time: new Date().toISOString()
     });
   }
