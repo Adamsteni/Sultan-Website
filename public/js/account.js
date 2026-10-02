@@ -346,15 +346,19 @@ ordersList.addEventListener("click", async (event) => {
   }
 });
 
-await loadConfig();
-await mountShell();
-
-if (isSignedIn()) await onSignedIn();
-else {
-  authCard.hidden = false;
-  renderAuthForm();
-}
-
 document.addEventListener("sultan:auth", (event) => {
   if (event.detail) onSignedIn();
 });
+
+async function start() {
+  await loadConfig();
+  await mountShell();
+
+  if (isSignedIn()) await onSignedIn();
+  else {
+    authCard.hidden = false;
+    renderAuthForm();
+  }
+}
+
+start();

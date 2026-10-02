@@ -266,17 +266,21 @@ function renderCheckout() {
   renderSummary();
 }
 
-await loadConfig();
-await mountShell();
-populateStates();
-document.addEventListener("sultan:cart", renderSummary);
+async function start() {
+  await loadConfig();
+  await mountShell();
+  populateStates();
+  document.addEventListener("sultan:cart", renderSummary);
 
-if (cart.count === 0) {
-  emptyCart.hidden = false;
-  checkout.hidden = true;
-  authGate.hidden = true;
-} else if (isSignedIn()) {
-  renderCheckout();
-} else {
-  showAuthGate();
+  if (cart.count === 0) {
+    emptyCart.hidden = false;
+    checkout.hidden = true;
+    authGate.hidden = true;
+  } else if (isSignedIn()) {
+    renderCheckout();
+  } else {
+    showAuthGate();
+  }
 }
+
+start();

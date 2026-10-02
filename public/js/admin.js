@@ -293,12 +293,16 @@ async function enter() {
   }
 }
 
-await loadConfig();
-await mountShell();
-wireTabs();
+async function start() {
+  await loadConfig();
+  await mountShell();
+  wireTabs();
 
-if (isSignedIn()) await enter();
-else {
-  lock.hidden = false;
-  renderGate();
+  if (isSignedIn()) await enter();
+  else {
+    lock.hidden = false;
+    renderGate();
+  }
 }
+
+start();

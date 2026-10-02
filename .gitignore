@@ -9,3 +9,6 @@ Thumbs.db
 
 # Copied out of node_modules by `npm run vendor` at build time.
 public/vendor/
+
+# Real credentials, used only for uploading environment variables to Netlify.
+netlify-upload.env

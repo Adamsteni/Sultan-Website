@@ -143,7 +143,11 @@ const url = new URLSearchParams(window.location.search);
 if (url.get("category")) activeFilter = url.get("category");
 if (url.get("q")) searchTerm = url.get("q");
 
-await loadConfig();
-catalogue = await mountShell();
-renderChips();
-renderGrid();
+async function start() {
+  await loadConfig();
+  catalogue = await mountShell();
+  renderChips();
+  renderGrid();
+}
+
+start();

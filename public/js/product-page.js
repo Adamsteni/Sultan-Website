@@ -161,20 +161,24 @@ function renderRelated(items) {
   });
 }
 
-await loadConfig();
-await mountShell();
+async function start() {
+  await loadConfig();
+  await mountShell();
 
-const slug = new URLSearchParams(window.location.search).get("slug");
-if (!slug) {
-  window.location.replace("./index.html#shop");
-} else {
-  try {
-    const { product: found, related } = await api(`/api/products/${encodeURIComponent(slug)}`);
-    product = found;
-    render();
-    renderRelated(related);
-  } catch (error) {
-    host.innerHTML = `<p class="cart-empty">${escapeHtml(error.message)}</p>
-      <p class="cart-empty"><a class="button-link" href="./index.html#shop">Back to the shop</a></p>`;
+  const slug = new URLSearchParams(window.location.search).get("slug");
+  if (!slug) {
+    window.location.replace("./index.html#shop");
+  } else {
+    try {
+      const { product: found, related } = await api(`/api/products/${encodeURIComponent(slug)}`);
+      product = found;
+      render();
+      renderRelated(related);
+    } catch (error) {
+      host.innerHTML = `<p class="cart-empty">${escapeHtml(error.message)}</p>
+        <p class="cart-empty"><a class="button-link" href="./index.html#shop">Back to the shop</a></p>`;
+    }
   }
 }
+
+start();

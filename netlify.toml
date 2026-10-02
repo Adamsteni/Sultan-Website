@@ -6,6 +6,14 @@
 [build.environment]
   NODE_VERSION = "22"
 
+[functions]
+  node_bundler = "esbuild"
+  # The browser modules under public/js are pulled into the function bundle transitively, and
+  # esbuild compiles them as CommonJS, where top-level await is a syntax error. They are loaded
+  # natively by <script type="module">, so shipping them raw keeps their native ESM behaviour
+  # and their top-level await.
+  included_files = []
+
 # The Express app runs as a function; static files are served from public/ by the CDN.
 [[redirects]]
   from = "/api/*"
