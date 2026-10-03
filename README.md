@@ -263,17 +263,23 @@ Recorded so the next person knows exactly what is finished and what is not.
 | Mailgun | Delivering; `Sending → Logs` shows `delivered` |
 | Admin console and CSV export | `smoke`, `netlify-check` |
 | Serverless deployment | `netlify-check` invokes the function as Netlify does |
+| Cart stored per account, shared across devices | 21 checks in `smoke`: merge, clamping, per-customer isolation, checkout clearing |
+| Mobile app bundle | `expo-doctor` 21/21; Android export succeeds |
+
+### Not verified
+
+The app has not been run on a physical phone. It bundles and every endpoint it calls is tested, but
+layout, image loading and the Google consent flow have not been seen on real hardware. Treat the
+screen recording as the first real run.
 
 ### Known gaps
-
-**Customer confirmation emails do not arrive.** Mailgun's sandbox domain rejects any recipient that
-is not an authorised recipient. The integration is complete and correct; the delivery restriction is
-a Mailgun account limit. Fixing it needs a purchased domain — see
-[Why a sandbox domain is not enough to launch](#why-a-sandbox-domain-is-not-enough-to-launch).
 
 **No payment is taken.** Card details are validated in test mode and discarded. Nothing is charged
 and no card data is stored, so the shop cannot yet accept money by card. Customers can pay on
 delivery.
+
+**Customer emails need a purchased domain.** Mailgun's sandbox domain only delivers to authorised
+recipients. See [Moving to a real domain](#moving-to-a-real-domain).
 
 **Test users are created in Supabase.** Anyone testing sign-in will appear under **Authentication →
 Users** in the Supabase dashboard. Delete them when finished.
@@ -313,10 +319,145 @@ once the upload succeeds.
 
 ---
 
+## The mobile app
+
+`mobile/` holds an Expo app that talks to the same API as the website. There is no separate
+backend and no duplicated business logic: `GET /api/products`, `POST /api/cart/items`,
+`POST /api/cart/merge`, `POST /api/orders` and the rest are the same endpoints the browser calls,
+hitting the same Netlify function.
+
+### What is shared, and how
+
+| Requirement | How it works |
+| --- | --- |
+| Same backend API | The app calls the deployed Netlify function at `EXPO_PUBLIC_API_URL`. No new endpoints were added for mobile. |
+| Same account on web and mobile | Both apps sign in through Supabase. The app stores the session and sends the access token as a bearer token on every request, which is exactly what the website does. |
+| Cart shared across devices | The bag is stored in the `cart_items` table keyed to the Supabase user id, not in browser storage. Anything added on either device is visible on the other. |
+
+### Before the app will work
+
+The cart endpoints need a table that the website did not need. Run the schema in Supabase once:
+
+1. Supabase dashboard → **SQL Editor** → **New query**
+2. Paste the whole of `db/schema.sql` and run it
+
+Every statement in the file is `create table if not exists` or `create or replace`, so re-running
+it is safe and leaves existing products and orders untouched.
+
+Without this the app shows products and orders but the bag will not save. A signed-out visitor can
+still add to a bag on the device; anything requiring a session fails with a server error.
+
+### Install it on your phone
+
+The phone needs [Expo Go](https://expo.dev/go) from the Play Store or the App Store. Nothing is
+built and no APK is needed — the app runs from the development server.
+
+```
+cd mobile
+npm install
+npx expo start
+```
+
+A QR code appears in the terminal. With the phone on the same Wi-Fi, open Expo Go and scan it
+(Android: **Scan** in the app; iOS: the built-in camera app).
+
+If the phone cannot see the computer on the network, start in tunnel mode instead:
+
+```
+npx expo start --tunnel
+```
+
+Both devices need to be on the same network for this to work. A phone on mobile data cannot reach
+a dev server running on your laptop.
+
+### Configure the app
+
+`mobile/.env` holds three non-secret values and is gitignored:
+
+```
+EXPO_PUBLIC_API_URL=https://sultanng.netlify.app/api
+EXPO_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<the anon key>
+```
+
+The anon key is safe to ship inside an app — it is the same key the website already exposes in
+`/api/config` and Supabase's row level security is what protects the data. The **service role key
+must never go here**; it would be readable by anyone who unpacks the app.
+
+### Google sign-in on a phone
+
+Email and password works in the app immediately. Google needs one extra step.
+
+The website is a web origin, which Google already knows. A phone app is a different kind of caller
+and is identified by a SHA-1 certificate fingerprint instead. Android rejects the sign-in with
+`origin_mismatch` until that fingerprint is registered.
+
+To find it:
+
+```
+cd mobile
+npx expo prebuild --clean
+keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android
+```
+
+Copy the `SHA1:` value, then in the Google Cloud console:
+
+**APIs & Services → Credentials → your Web application client → Authorized JavaScript origins →
+Add an origin**, and paste:
+
+```
+sultan://auth
+```
+
+Android also reports a client-id error if the app's `android.package` (currently
+`com.sultan.clothing`) is not registered as an **Android application** client. If Google rejects
+the client id after the origin is added, create an Android OAuth client in the same Google Cloud
+project and use that id in `EXPO_PUBLIC_GOOGLE_CLIENT_ID`.
+
+### Recording the demonstration
+
+The brief asks for a screen recording, not an APK, so the useful sequence is the one that proves
+each requirement rather than the one that shows the most screens.
+
+1. **Website, signed in.** Add two or three pieces, choosing sizes. Leave the bag open.
+2. **Phone.** Open Expo Go and launch the app. Sign in with the *same* account.
+3. **The bag is already there.** The badge shows the same count, and the lines match the website.
+4. **Back to the website.** Reload. The bag is unchanged — it is one bag, not two.
+5. **Add something on the phone.** Then reload the website and show the new item.
+6. **Check out on the phone.** Show the order confirmation screen.
+7. **Website, Orders tab.** The order appears there too, and the bag is empty on both.
+
+Step 7 is the one worth pausing on. It shows orders and bag are shared state rather than two
+separate copies, which is the part a reviewer is most likely to doubt.
+
+Record at a steady pace and narrate what each screen is proving. Most phone screen recorders live
+in the notification shade — swipe down twice and tap **Screen record**.
+
+### Cart synchronisation, honestly
+
+The bag updates on the device immediately and is written to the server straight after. It is not
+pushed with a websocket, so a change made on the other device appears when the app refetches:
+
+- on launch
+- when the Orders or Bag tab is opened
+- after sign-in
+
+This is the "refresh by navigating away and back" behaviour from the brief. It is deliberate: a
+socket would keep a connection open on a mobile network and drain the battery for very little gain
+on a shop this size.
+
+### Running it somewhere else
+
+`EXPO_PUBLIC_API_URL` is the only thing that ties the app to a deployment. Point it at
+`http://localhost:4000/api` with the website running locally and the app works against your
+machine instead of Netlify.
+
+---
+
 ## Layout
 
 ```
-db/schema.sql              tables, row level security, place_order
+db/schema.sql              tables, row level security, place_order, cart_items
 netlify/functions/api.js   Express app wrapped for Netlify Functions
 netlify.toml               build, publish, redirects and headers
 scripts/seed.js            catalogue loader
@@ -333,6 +474,10 @@ server/mailer.js           Mailgun delivery and templates
 server/data/catalogue.js   products and delivery thresholds
 server/repositories/       Supabase and in-memory data access
 public/                    pages, modules, styles, images
+mobile/src/app/            screens (Expo Router)
+mobile/src/lib/api.js      API client, shared with every screen
+mobile/src/lib/auth.js     Supabase sign-in, Google browser flow
+mobile/src/lib/cart.js     bag store, server-backed when signed in
 ```
 
 Prices are stored as integer kobo (₦1 = 100). Free delivery applies from ₦150,000; otherwise
