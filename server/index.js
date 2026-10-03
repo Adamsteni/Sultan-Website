@@ -153,6 +153,106 @@ app.post("/api/newsletter", wrap(async (req, res) => {
   ok(res, { email, welcomeSent });
 }));
 
+// -----------------------------------------------------------------------------
+// Cart
+//
+// The bag is stored per account so the website and the phone app, signed in as the same
+// customer, always show the same contents. Signed-out visitors keep their bag in
+// localStorage; on sign-in they POST that bag to /api/cart/merge so nothing is lost.
+// -----------------------------------------------------------------------------
+app.get("/api/cart", requireUser, wrap(async (req, res) => {
+  const lines = await repository.getCart(req.user.id);
+  ok(res, { lines, count: lines.reduce((sum, line) => sum + line.quantity, 0) });
+}));
+
+app.post("/api/cart/items", requireUser, wrap(async (req, res) => {
+  const slug = String(req.body?.slug || "").trim();
+  const size = req.body?.size ? String(req.body.size) : null;
+  const quantity = req.body?.quantity == null ? 1 : Number(req.body.quantity);
+
+  if (!slug) throw new ValidationError({ slug: "Choose a product first." });
+  if (!Number.isFinite(quantity) || quantity < 1) {
+    throw new ValidationError({ quantity: "Quantity must be at least 1." });
+  }
+
+  const product = await repository.getProductBySlug(slug);
+  if (!product || !product.active) {
+    throw new ValidationError({ slug: `${slug} is no longer available. Please remove it from your bag.` });
+  }
+  if (product.sizes.length && !size) {
+    throw new ValidationError({ size: `Please choose a size for ${product.name}.` });
+  }
+  if (size && product.sizes.length && !product.sizes.includes(size)) {
+    throw new ValidationError({ size: `Please choose a size for ${product.name}.` });
+  }
+
+  const lines = await repository.addCartLine(req.user.id, slug, size, quantity);
+  ok(res, { lines, count: lines.reduce((sum, line) => sum + line.quantity, 0) });
+}));
+
+app.patch("/api/cart/items", requireUser, wrap(async (req, res) => {
+  const slug = String(req.body?.slug || "").trim();
+  const size = req.body?.size ? String(req.body.size) : null;
+  if (!slug) throw new ValidationError({ slug: "Choose a product first." });
+
+  const quantity = req.body?.quantity == null ? 1 : Number(req.body.quantity);
+  if (!Number.isFinite(quantity)) {
+    throw new ValidationError({ quantity: "Enter a valid quantity." });
+  }
+
+  const lines = await repository.setCartLine(req.user.id, slug, size, quantity);
+  ok(res, { lines, count: lines.reduce((sum, line) => sum + line.quantity, 0) });
+}));
+
+app.delete("/api/cart/items", requireUser, wrap(async (req, res) => {
+  const slug = String(req.query.slug || "").trim();
+  const size = req.query.size ? String(req.query.size) : null;
+  if (!slug) throw new ValidationError({ slug: "Choose a product first." });
+
+  const lines = await repository.setCartLine(req.user.id, slug, size, 0);
+  ok(res, { lines, count: lines.reduce((sum, line) => sum + line.quantity, 0) });
+}));
+
+// Folds a guest bag (localStorage, or the other device) into the account cart. Quantities
+// add together and are capped at 20 per line, so merging never discards an item.
+app.post("/api/cart/merge", requireUser, wrap(async (req, res) => {
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  if (items.length > 50) {
+    throw new ValidationError({ items: "Too many items in one merge." });
+  }
+
+  const cleaned = [];
+  for (const item of items) {
+    const slug = String(item?.slug || "").trim();
+    if (!slug) continue;
+    const quantity = Math.min(Math.max(Number(item?.quantity) || 1, 1), 20);
+    const size = item?.size ? String(item.size) : null;
+
+    const product = await repository.getProductBySlug(slug);
+    if (!product || !product.active) continue;
+    if (product.sizes.length && !size) continue;
+    if (size && product.sizes.length && !product.sizes.includes(size)) continue;
+
+    cleaned.push({ slug, size, quantity });
+  }
+
+  const lines = await repository.mergeCart(req.user.id, cleaned);
+  ok(res, { lines, count: lines.reduce((sum, line) => sum + line.quantity, 0) });
+}));
+
+app.delete("/api/cart", requireUser, wrap(async (req, res) => {
+  const lines = await repository.clearCart(req.user.id);
+  ok(res, { lines, count: 0 });
+}));
+
+// Replaces the stored bag outright. Used when the server copy is unavailable and a client
+// needs to push its local bag back up; the client calls this rather than per-line patches.
+app.put("/api/cart", requireUser, wrap(async (req, res) => {
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const lines = await repository.replaceCart(req.user.id, items);
+  ok(res, { lines, count: lines.reduce((sum, line) => sum + line.quantity, 0) });
+}));
+
 app.post("/api/orders", requireUser, wrap(async (req, res) => {
   const items = validateCart(req.body?.items);
   const shipping = validateShipping(req.body?.shipping);
@@ -196,7 +296,15 @@ app.post("/api/orders", requireUser, wrap(async (req, res) => {
     email = { sent: false, reason: error.message };
   }
 
-  return res.status(201).json({ order: { ...order, confirmationSentAt: email.sent ? new Date().toISOString() : null }, email });
+  // The bag is emptied once the order exists, on the server, so the phone app stops showing
+// the purchased items too without waiting for the browser to sync.
+try {
+  await repository.clearCart(req.user.id);
+} catch (error) {
+  console.error("[cart] could not clear after order:", error.message);
+}
+
+return res.status(201).json({ order: { ...order, confirmationSentAt: email.sent ? new Date().toISOString() : null }, email });
 }));
 
 app.get("/api/orders", requireUser, wrap(async (req, res) => {

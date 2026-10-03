@@ -1,4 +1,15 @@
-import { config, money, deliveryFor, readStorage, writeStorage, toast, escapeHtml } from "./core.js";
+import {
+  config,
+  money,
+  deliveryFor,
+  readStorage,
+  writeStorage,
+  toast,
+  escapeHtml,
+  api,
+  broadcastCart,
+  onCartBroadcast
+} from "./core.js";
 
 const CART_KEY = "sultan.cart";
 const WISH_KEY = "sultan.wishlist";
@@ -11,10 +22,44 @@ const state = {
   wishlist: readStorage(WISH_KEY, [])
 };
 
+// Which storage layer is authoritative. "local" until the visitor signs in, then "server".
+// Signing in flips this and calls syncFromServer(), so the bag on this device and the bag on
+// the phone converge rather than one silently overwriting the other.
+let source = "local";
+let syncing = false;
+
 const persist = () => {
   writeStorage(CART_KEY, state.cart);
   writeStorage(WISH_KEY, state.wishlist);
   announce();
+  broadcastCart(state.cart);
+};
+
+// Writes to the server and adopts whatever it returns, so the response is the source of truth.
+// A network failure leaves the local bag alone: it is still in localStorage and will be
+// reconciled on the next successful call rather than lost.
+const push = async (path, options) => {
+  if (syncing) return;
+  const previous = syncing;
+  syncing = true;
+  try {
+    const payload = await api(path, options);
+    if (payload?.lines) {
+      state.cart = payload.lines;
+      persist();
+    }
+  } catch (error) {
+    if (previous === false) throw error;
+  } finally {
+    syncing = previous;
+  }
+};
+
+// Applies a change locally first so the drawer updates instantly, then reconciles with the
+// server. localStorage stays written so a signed-out guest, or a failed request, is not lost.
+const commit = (path, options) => {
+  persist();
+  if (source === "server") push(path, options);
 };
 
 export const cart = {
@@ -55,7 +100,7 @@ export const cart = {
         quantity: Math.min(quantity, 20)
       });
     }
-    persist();
+    commit("/api/cart/items", { method: "POST", body: { slug: product.slug, size, quantity } });
   },
   setQuantity(slug, size, quantity) {
     const key = lineKey(slug, size);
@@ -64,18 +109,53 @@ export const cart = {
     const next = Math.min(Math.max(quantity, 0), 20);
     if (next === 0) state.cart.splice(index, 1);
     else state.cart[index].quantity = next;
-    persist();
+    commit("/api/cart/items", {
+      method: "PATCH",
+      body: { slug, size, quantity: next }
+    });
   },
   remove(slug, size) {
     state.cart = state.cart.filter((entry) => lineKey(entry.slug, entry.size) !== lineKey(slug, size));
-    persist();
+    const query = new URLSearchParams({ slug });
+    if (size) query.set("size", size);
+    commit(`/api/cart/items?${query}`, { method: "DELETE" });
   },
   clear() {
     state.cart = [];
-    persist();
+    commit("/api/cart", { method: "DELETE" });
   },
   toPayload() {
     return state.cart.map((line) => ({ slug: line.slug, quantity: line.quantity, size: line.size }));
+  },
+
+  // Called after sign-in: fold whatever this device was holding as a guest into the account's
+  // cart, then take the merged result. Quantities add rather than replace, so nothing is lost.
+  async syncFromServer() {
+    const guestLines = state.cart.filter((line) => line.slug);
+    source = "server";
+    try {
+      const payload = guestLines.length
+        ? await api("/api/cart/merge", { method: "POST", body: { items: cart.toPayload() } })
+        : await api("/api/cart");
+      if (payload?.lines) state.cart = payload.lines;
+      persist();
+      return state.cart;
+    } catch {
+      // Signed in but the cart call failed: stay on the local copy and retry on next action.
+      return state.cart;
+    }
+  },
+
+  // Called on sign-out so the next guest on this device starts from an empty bag rather than
+  // inheriting the previous customer's items.
+  resetToLocal() {
+    source = "local";
+    state.cart = [];
+    persist();
+  },
+
+  isServerBacked() {
+    return source === "server";
   }
 };
 

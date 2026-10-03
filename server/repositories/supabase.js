@@ -28,6 +28,22 @@ const mapItem = (row) => ({
   lineTotalKobo: row.line_total_kobo
 });
 
+// A cart line pairs the stored slug/size/quantity with the product's current details.
+// Products joined as an array because PostgREST returns embedded relations that way.
+const cartLine = (row) => {
+  const product = Array.isArray(row.products) ? row.products[0] : row.products;
+  return {
+    slug: row.slug,
+    size: row.size || null,
+    quantity: row.quantity,
+    name: product?.name || row.slug,
+    image: product?.image_url || null,
+    unitPriceKobo: product?.price_kobo ?? 0,
+    stock: product?.stock ?? 0,
+    available: product?.active !== false
+  };
+};
+
 const mapOrder = (row, items = []) => ({
   id: row.id,
   orderNumber: row.order_number,
@@ -258,6 +274,90 @@ export function createSupabaseRepository() {
           .then(({ count }) => count || 0),
         lowStock: live.filter((product) => product.stock <= 10)
       };
+    },
+
+    // ---- cart -------------------------------------------------------------
+    // Only slug, size and quantity are stored; name, price and image are joined from products
+    // on read so a cart can never hold a stale price.
+
+    async getCart(userId) {
+      const { data, error } = await db
+        .from("cart_items")
+        .select("slug,size,quantity,products(slug,name,image_url,price_kobo,stock,active)")
+        .eq("user_id", userId)
+        .order("created_at");
+      throwOnError({ error, context: "cart_items" });
+      return (data || []).map(cartLine);
+    },
+
+    async setCartLine(userId, slug, size, quantity) {
+      const wanted = Math.min(Math.max(Number(quantity) || 0, 0), 20);
+      const sizeValue = size || "";
+
+      if (wanted === 0) {
+        const { error } = await db
+          .from("cart_items")
+          .delete()
+          .eq("user_id", userId)
+          .eq("slug", slug)
+          .eq("size", sizeValue);
+        throwOnError({ error, context: "cart_items" });
+        return this.getCart(userId);
+      }
+
+      const { error } = await db
+        .from("cart_items")
+        .upsert(
+          { user_id: userId, slug, size: sizeValue, quantity: wanted },
+          { onConflict: "user_id,slug,size" }
+        )
+        .select();
+      throwOnError({ error, context: "cart_items" });
+      return this.getCart(userId);
+    },
+
+    async addCartLine(userId, slug, size, quantity) {
+      const add = Math.min(Math.max(Number(quantity) || 1, 1), 20);
+      const { data, error } = await db
+        .from("cart_items")
+        .select("quantity")
+        .eq("user_id", userId)
+        .eq("slug", slug)
+        .eq("size", size || "")
+        .maybeSingle();
+      throwOnError({ error, context: "cart_items" });
+
+      const current = data ? data.quantity : 0;
+      return this.setCartLine(userId, slug, size, Math.min(current + add, 20));
+    },
+
+    async clearCart(userId) {
+      const { error } = await db.from("cart_items").delete().eq("user_id", userId);
+      throwOnError({ error, context: "cart_items" });
+      return [];
+    },
+
+    async mergeCart(userId, items) {
+      if (!items || items.length === 0) return this.getCart(userId);
+
+      const { error } = await db.rpc("merge_cart", {
+        p_user_id: userId,
+        p_items: items.map((item) => ({
+          slug: item.slug,
+          quantity: item.quantity,
+          size: item.size || ""
+        }))
+      });
+      throwOnError({ error, context: "merge_cart" });
+
+      // merge_cart writes the rows; re-read so product name, price and image are attached.
+      return this.getCart(userId);
+    },
+
+    async replaceCart(userId, items) {
+      const { error } = await db.from("cart_items").delete().eq("user_id", userId);
+      throwOnError({ error, context: "cart_items" });
+      return this.mergeCart(userId, items);
     }
   };
 }

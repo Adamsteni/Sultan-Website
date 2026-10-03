@@ -10,8 +10,13 @@ export function createMemoryRepository() {
     active: true,
     createdAt: new Date().toISOString()
   }));
-  const orders = new Map();
-  const subscribers = [];
+const orders = new Map();
+const subscribers = [];
+
+// user id -> [{ slug, size, quantity }]
+const carts = new Map();
+
+const cartKey = (slug, size) => `${slug}|${size || ""}`;
   let orderSeq = 1001;
 
   const reject = (message) => {
@@ -191,6 +196,69 @@ export function createMemoryRepository() {
     },
 
     // Only used by the smoke test to prove the demo store persists an order.
-    ordersInMemory: () => [...orders.values()].map((order) => order.orderNumber)
+    ordersInMemory: () => [...orders.values()].map((order) => order.orderNumber),
+
+    // ---- cart -------------------------------------------------------------
+    // The demo store keeps carts in a Map keyed by user id, mirroring the per-account rows in
+    // Supabase. Price and stock still come from `products` on read, as the real repository does.
+    async getCart(userId) {
+      return (carts.get(userId) || []).map((line) => {
+        const product = products.find((item) => item.slug === line.slug);
+        return {
+          slug: line.slug,
+          size: line.size || null,
+          quantity: line.quantity,
+          name: product?.name || line.slug,
+          image: product?.image || null,
+          unitPriceKobo: product?.priceKobo ?? 0,
+          stock: product?.stock ?? 0,
+          available: product ? product.active !== false : false
+        };
+      });
+    },
+
+    async setCartLine(userId, slug, size, quantity) {
+      const wanted = Math.min(Math.max(Number(quantity) || 0, 0), 20);
+      const key = cartKey(slug, size);
+      const lines = carts.get(userId) || [];
+
+      if (wanted === 0) {
+        carts.set(userId, lines.filter((line) => cartKey(line.slug, line.size) !== key));
+        return this.getCart(userId);
+      }
+
+      const existing = lines.find((line) => cartKey(line.slug, line.size) === key);
+      if (existing) existing.quantity = wanted;
+      else lines.push({ slug, size: size || null, quantity: wanted });
+
+      carts.set(userId, lines);
+      return this.getCart(userId);
+    },
+
+    async addCartLine(userId, slug, size, quantity) {
+      const add = Math.min(Math.max(Number(quantity) || 1, 1), 20);
+      const current = (carts.get(userId) || []).find(
+        (line) => cartKey(line.slug, line.size) === cartKey(slug, size)
+      );
+      return this.setCartLine(userId, slug, size, Math.min((current?.quantity || 0) + add, 20));
+    },
+
+    async clearCart(userId) {
+      carts.set(userId, []);
+      return [];
+    },
+
+    async mergeCart(userId, items) {
+      for (const item of items || []) {
+        if (!item.slug) continue;
+        await this.addCartLine(userId, item.slug, item.size, item.quantity);
+      }
+      return this.getCart(userId);
+    },
+
+    async replaceCart(userId, items) {
+      carts.set(userId, []);
+      return this.mergeCart(userId, items);
+    }
   };
 }

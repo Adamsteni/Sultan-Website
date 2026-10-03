@@ -80,6 +80,85 @@ create table if not exists public.order_items (
 create index if not exists order_items_order_id_idx on public.order_items (order_id);
 
 -- -----------------------------------------------------------------------------
+-- cart_items — the shopping bag, stored per account.
+--
+-- The bag lives here rather than in the browser's localStorage so the same cart is visible
+-- from every device the customer signs in on: the website and the phone app show the same
+-- contents. Rows are keyed by (user_id, slug, size) so adding the same product twice
+-- updates one row instead of stacking duplicates.
+--
+-- Only slug, size and quantity are stored. Name, price and image are joined from products
+-- on read, so a price change is reflected everywhere at once and a cart can never hold a
+-- stale price.
+-- -----------------------------------------------------------------------------
+create table if not exists public.cart_items (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  slug       text not null,
+  size       text not null default '',
+  quantity   integer not null default 1 check (quantity > 0 and quantity <= 20),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- One row per product/size per customer. size is NOT NULL with a '' default so this is a plain
+-- composite index, which also lets the API upsert on conflict without naming an expression.
+create unique index if not exists cart_items_user_slug_size_idx
+  on public.cart_items (user_id, slug, size);
+create index if not exists cart_items_user_idx on public.cart_items (user_id);
+
+-- -----------------------------------------------------------------------------
+-- merge_cart — folds a client-side guest bag into the account's cart.
+--
+-- Called when a customer signs in carrying items from localStorage or from the other
+-- device. Quantities are added rather than replaced, and the ceiling of 20 per line is
+-- the same one the website enforces, so a merge cannot exceed stock limits.
+--
+-- SECURITY DEFINER for the same reason as place_order: the Node server calls it with the
+-- service role key and supplies the user id itself.
+-- -----------------------------------------------------------------------------
+create or replace function public.merge_cart(
+  p_user_id uuid,
+  p_items   jsonb
+)
+returns setof public.cart_items
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_item jsonb;
+begin
+  if p_items is null then
+    return;
+  end if;
+
+  for v_item in select * from jsonb_array_elements(p_items) loop
+    insert into public.cart_items (user_id, slug, size, quantity)
+    values (
+      p_user_id,
+      v_item ->> 'slug',
+      coalesce(v_item ->> 'size', ''),
+      least(greatest(coalesce((v_item ->> 'quantity')::integer, 1), 1), 20)
+    )
+    on conflict (user_id, slug, size) do update
+      set quantity = least(
+            public.cart_items.quantity
+            + least(greatest(coalesce(excluded.quantity, 1), 1), 20),
+            20
+          ),
+          updated_at = now();
+  end loop;
+
+  return query
+    select * from public.cart_items where user_id = p_user_id order by created_at;
+end;
+$$;
+
+revoke execute on function public.merge_cart from public, anon, authenticated;
+grant execute on function public.merge_cart to service_role;
+
+-- -----------------------------------------------------------------------------
 -- newsletter_subscribers
 -- -----------------------------------------------------------------------------
 create table if not exists public.newsletter_subscribers (
@@ -205,6 +284,7 @@ grant execute on function public.place_order to service_role;
 alter table public.products enable row level security;
 alter table public.orders   enable row level security;
 alter table public.order_items enable row level security;
+alter table public.cart_items enable row level security;
 alter table public.newsletter_subscribers enable row level security;
 
 drop policy if exists "products are public" on public.products;
@@ -227,3 +307,10 @@ create policy "customers read their own order items"
     select 1 from public.orders o
     where o.id = order_items.order_id and o.user_id = auth.uid()
   ));
+
+drop policy if exists "customers manage their own cart" on public.cart_items;
+create policy "customers manage their own cart"
+  on public.cart_items for all
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());

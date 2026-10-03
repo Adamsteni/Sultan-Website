@@ -1,4 +1,5 @@
 import { api, config, setAccessToken, readStorage, writeStorage, toast } from "./core.js";
+import { cart } from "./cart.js";
 
 const SESSION_KEY = "sultan.session";
 
@@ -28,6 +29,7 @@ export function authProvider() {
 }
 
 function adoptSession(next) {
+  const wasSignedIn = Boolean(session);
   session = next;
   setAccessToken(next?.token || null);
   config().user = next
@@ -36,6 +38,16 @@ function adoptSession(next) {
   if (next) writeStorage(SESSION_KEY, next);
   else window.localStorage.removeItem(SESSION_KEY);
   listenersRun(currentUser());
+  syncCart(next, wasSignedIn);
+}
+
+// Ties the cart to the session: signing in merges whatever this device was holding into the
+// account's cart so the phone and the website agree; signing out clears the bag so the next
+// guest does not inherit it. Errors are swallowed because a cart problem must never block
+// sign-in -- the cart falls back to its local copy and reconciles on the next action.
+function syncCart(next, wasSignedIn) {
+  if (next) cart.syncFromServer().catch(() => {});
+  else if (wasSignedIn) cart.resetToLocal();
 }
 
 const normalise = (user) => ({

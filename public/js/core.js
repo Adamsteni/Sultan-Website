@@ -90,6 +90,27 @@ export async function api(path, { method = "GET", body, headers = {} } = {}) {
   return payload;
 }
 
+// BroadcastChannel tells other tabs in this browser that the cart changed. This is not how the
+// cart syncs between devices -- that is done by the server -- but it keeps two open tabs on the
+// same machine from showing different bags.
+const cartChannel = typeof BroadcastChannel === "function" ? new BroadcastChannel("sultan:cart") : null;
+
+export function broadcastCart(lines) {
+  if (!cartChannel) return;
+  try {
+    cartChannel.postMessage({ lines, at: Date.now() });
+  } catch {
+    // A closed channel or a structured-clone failure should never break the cart.
+  }
+}
+
+export function onCartBroadcast(handler) {
+  if (!cartChannel) return () => {};
+  const listener = (event) => handler(event.data);
+  cartChannel.addEventListener("message", listener);
+  return () => cartChannel.removeEventListener("message", listener);
+}
+
 export function readStorage(key, fallback) {
   try {
     const raw = window.localStorage.getItem(key);
