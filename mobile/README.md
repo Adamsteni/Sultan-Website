@@ -9,12 +9,21 @@ their own copy.
 
 ```bash
 npm install
-npx expo start --lan
+npm start          # Expo Go, over the local network
 ```
 
-Then scan the QR code with Expo Go. The phone and the development machine must be
-on the same network; `--lan` hands out a `exp://<your-ip>:8081` address that
-Expo Go can actually receive.
+`npm start` is `expo start --lan --go`. The phone and the development machine must be
+on the same network; `--lan` hands out an `exp://<your-ip>:8081` address that Expo Go
+can actually receive.
+
+| Command | Opens in | Google sign-in |
+| --- | --- | --- |
+| `npm start` | Expo Go | no |
+| `npm run client` | the development build | yes |
+
+`expo-dev-client` is a dependency, so plain `npx expo start` looks for a development
+build. `--go` forces Expo Go back on, which is what keeps the app usable on a phone
+before the build exists.
 
 Configuration comes from `.env` (gitignored):
 
@@ -60,18 +69,15 @@ npm install -g eas-cli
 eas login
 eas build:configure          # first run only: creates the project, sets bundle ID
 
-eas build --profile development --platform ios
+npm run build:dev            # eas build --profile development --platform ios
 ```
 
 Scan the QR code from the build's output, then start the bundler and open the
 installed app:
 
 ```bash
-npx expo start --dev-client
+npm run client
 ```
-
-Once that app is installed, `npx expo start` without `--dev-client` will still
-look for a development build, because `expo-dev-client` is now a dependency.
 
 Other profiles in `eas.json`: `preview` for an internal TestFlight/TestFlight-style
 build, `production` for the store.

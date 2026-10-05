@@ -23,10 +23,12 @@
     "react-native-screens": "~4.26.0"
   },
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --lan --go",
+    "client": "expo start --lan --dev-client",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build:dev": "eas build --profile development --platform ios",
     "lint": "expo lint"
   },
   "private": true
