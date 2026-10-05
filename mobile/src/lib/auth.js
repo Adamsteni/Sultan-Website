@@ -4,8 +4,9 @@
 // call then carries. That is what makes the account the same on web and phone.
 //
 //   email + password  -> supabase.auth.signInWithPassword
-//   Google            -> expo-auth-session opens the consent screen, the id token is posted
-//                        to /auth/v1/token, and the resulting session is stored the same way
+//   Google            -> expo-web-browser opens the consent screen against Supabase's redirect,
+//                        the tokens come back on the callback URL, and setSession stores them the
+//                        same way. No native Google module is involved.
 //
 // The bag is tied to the session by cart.syncFromServer() / cart.resetToLocal(), so signing in
 // merges whatever was held on the device and signing out clears it.
@@ -131,25 +132,18 @@ export async function signInWithEmail(email, password) {
 // Google sign-in.
 //
 // The consent screen runs in a browser tab rather than a native Google SDK dialog. That is the
-// one deliberate difference from the website: it means no extra native module, so the app runs
-// in Expo Go on a phone without a development build.
-//
-// Android treats these links as other apps' links, so the result is read back with Linking
-// instead of the return URL.
-// Google sign-in.
-//
-// The consent screen runs in a browser tab rather than a native Google SDK dialog, so the app
-// needs no extra native module and runs in Expo Go.
+// one deliberate difference from the website: it means no extra native module is needed.
 //
 // Supabase runs the whole Google exchange and hands back the URL to open. Talking to
 // accounts.google.com directly would be simpler but cannot work: Google only allows https://
 // redirects for web OAuth clients, so a custom scheme can never be sent straight to Google.
 // Supabase sits in between as the allowed https target and forwards the finished tokens on.
 //
-// The redirect URI has to be derived at runtime, not hard-coded. Expo Go registers only the
-// the app owns the "sultan" scheme and nothing handles that in Expo Go, so iOS reports "Safari
-// cannot open the page because it couldn't connect to the server". authRedirectUrl() below builds
-// an address Expo Go can actually receive; a real build uses sultan://auth.
+// The redirect URI has to be derived at runtime, not hard-coded. Expo Go registers only its own
+// exp:// scheme, so nothing there handles the "sultan" scheme this app owns, and iOS reports
+// "Safari cannot open the page because it couldn't connect to the server". A development build
+// (see eas.json) does own the sultan scheme, which is why Google sign-in needs one; authRedirectUrl
+// below keeps working in Expo Go for the flows that can be received there.
 export async function signInWithGoogle() {
   if (!hasSupabase) throw new Error("Supabase is not configured for the app.");
 
@@ -194,14 +188,15 @@ export async function signInWithGoogle() {
 
 // Builds the URL Supabase sends the browser back to once Google is done.
 //
-// Linking.createURL() cannot be used here. This app declares its own scheme ("sultan" in app.json),
-// and expo-linking blanks the host in that case whenever it detects Expo Go:
+// Linking.createURL() cannot be used inside Expo Go. This app declares its own scheme ("sultan" in
+// app.json), and expo-linking blanks the host in that case whenever it detects Expo Go:
 //
 //   if (hasCustomScheme() && isExpoHosted()) hostUri = '';      createURL.js:72
 //
 // The result is "exp:////auth" with no host, which iOS reports as "Safari cannot open the page
 // because it couldn't connect to the server". So the Expo Go URL is assembled here from the host
-// Metro is already serving on; a real build goes through createURL and gets sultan://auth.
+// Metro is already serving on. A development build owns the sultan scheme, so createURL returns
+// sultan://auth there and is used directly.
 function authRedirectUrl() {
   if (Constants.expoGoConfig) {
     const host = Constants.expoConfig?.hostUri || stripScheme(Constants.linkingUri);
