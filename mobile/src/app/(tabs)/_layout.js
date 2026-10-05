@@ -1,10 +1,15 @@
-// Bottom tabs: Shop, Bag, Orders, Account. The bag badge is driven by the same cart store the
+﻿// Bottom tabs: Shop, Bag, Orders, Account. The bag badge is driven by the same cart store the
 // Shop tab writes to, so adding an item updates the tab bar without a refresh.
+//
+// The site's header uses hairline outline icons rather than filled ones, so the outline variants
+// are used here to keep that weight consistent across both.
 
 import { Tabs } from "expo-router";
 import { Text, View, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "../../lib/cart";
-import { colors } from "../../components/ui";
+import { colors, labelStyle } from "../../components/ui";
+import { fontFamily } from "../../lib/fonts";
 
 function Badge({ count }) {
   if (!count) return null;
@@ -15,21 +20,14 @@ function Badge({ count }) {
   );
 }
 
-function ShopIcon({ focused }) {
-  return <Text style={[styles.icon, focused && styles.iconActive]}>Shop</Text>;
-}
-
-function BagIcon({ focused, count }) {
+function TabIcon({ name, focused, count }) {
+  const tint = focused ? colors.foreground : colors.muted;
   return (
-    <View>
-      <Text style={[styles.icon, focused && styles.iconActive]}>Bag</Text>
+    <View style={styles.iconWrap}>
+      <Ionicons name={name} size={21} color={tint} />
       <Badge count={count} />
     </View>
   );
-}
-
-function TabIcon({ label, focused }) {
-  return <Text style={[styles.icon, focused && styles.iconActive]}>{label}</Text>;
 }
 
 export default function TabsLayout() {
@@ -39,58 +37,77 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: true,
-        tabBarActiveTintColor: colors.ink,
-        tabBarInactiveTintColor: colors.inkFaint,
-        tabBarStyle: { borderTopColor: colors.line },
-        headerStyle: { backgroundColor: colors.paper },
-        headerTitleStyle: { color: colors.ink, fontSize: 17 },
-        headerShadowVisible: false
+        tabBarActiveTintColor: colors.foreground,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: {
+          backgroundColor: colors.background,
+          borderTopColor: colors.line,
+          borderTopWidth: StyleSheet.hairlineWidth
+        },
+        tabBarLabelStyle: labelStyle(9.5, colors.muted, 1.4),
+        tabBarItemStyle: { paddingTop: 6 },
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
+        headerTitleStyle: {
+          fontFamily: fontFamily.extrabold,
+          fontSize: 14,
+          letterSpacing: 2.4,
+          textTransform: "uppercase",
+          color: colors.ink
+        }
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Sultan Clothing", tabBarIcon: ({ focused }) => <ShopIcon focused={focused} /> }}
+        options={{
+          title: "Sultan Clothing",
+          tabBarIcon: ({ focused }) => <TabIcon name="storefront-outline" focused={focused} />
+        }}
       />
       <Tabs.Screen
-        name="cart"
-        options={{ title: "Your bag", tabBarIcon: ({ focused }) => <BagIcon focused={focused} count={count} /> }}
+        name="bag"
+        options={{
+          title: "Your bag",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="bag-outline" focused={focused} count={count} />
+          )
+        }}
       />
       <Tabs.Screen
         name="orders"
-        options={{ title: "Orders", tabBarIcon: ({ focused }) => <TabIcon label="Orders" focused={focused} /> }}
+        options={{
+          title: "Orders",
+          tabBarIcon: ({ focused }) => <TabIcon name="receipt-outline" focused={focused} />
+        }}
       />
       <Tabs.Screen
         name="account"
-        options={{ title: "Account", tabBarIcon: ({ focused }) => <TabIcon label="Account" focused={focused} /> }}
+        options={{
+          title: "Account",
+          tabBarIcon: ({ focused }) => <TabIcon name="person-outline" focused={focused} />
+        }}
       />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  icon: {
-    fontSize: 11,
-    color: colors.inkFaint
-  },
-  iconActive: {
-    color: colors.ink,
-    fontWeight: "600"
-  },
+  iconWrap: { width: 44, alignItems: "center" },
   badge: {
     position: "absolute",
-    top: -6,
-    right: -16,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -5,
+    right: 4,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
     paddingHorizontal: 4,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center"
   },
   badgeText: {
-    color: "#FFF",
-    fontSize: 10,
-    fontWeight: "700"
+    color: "#FFFFFF",
+    fontFamily: fontFamily.bold,
+    fontSize: 9.5
   }
 });

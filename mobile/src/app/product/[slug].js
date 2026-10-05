@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { View, Text, Image, Pressable, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api, money } from "../../lib/api";
+import { api, money, imageUrl } from "../../lib/api";
 import { cart } from "../../lib/cart";
 import { colors, space, Button, Banner, Title, Muted, Divider } from "../../components/ui";
 
@@ -70,9 +70,10 @@ export default function ProductScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <Image source={{ uri: absolute(product.image) }} style={styles.image} resizeMode="cover" />
+        <Image source={{ uri: imageUrl(product.image) }} style={styles.image} resizeMode="cover" />
         <View style={styles.body}>
-          <Title>{product.name}</Title>
+          <Text style={styles.category}>{product.category}</Text>
+          <Title style={styles.name}>{product.name}</Title>
           <Text style={styles.price}>{money(product.priceKobo)}</Text>
           {product.tagline ? <Muted style={styles.tagline}>{product.tagline}</Muted> : null}
 
@@ -135,7 +136,7 @@ export default function ProductScreen() {
           disabled={product.stock === 0 || (needsSize && !size)}
         />
         {cart.quantityOf(product.slug, size) > 0 ? (
-          <Pressable onPress={() => router.push("/cart")} style={styles.inBag}>
+          <Pressable onPress={() => router.push("/bag")} style={styles.inBag}>
             <Text style={styles.inBagText}>
               {cart.quantityOf(product.slug, size)} in your bag — view bag
             </Text>
@@ -146,29 +147,30 @@ export default function ProductScreen() {
   );
 }
 
-function absolute(path) {
-  if (!path) return "https://sultanng.netlify.app/img/product-essential.jpg";
-  if (/^https?:\/\//.test(path)) return path;
-  const base = (process.env.EXPO_PUBLIC_API_URL || "").replace(/\/api$/, "");
-  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.paper },
   padded: { padding: space.md, backgroundColor: colors.paper, flex: 1 },
-  image: { width: "100%", aspectRatio: 1, backgroundColor: colors.cream },
+  image: { width: "100%", aspectRatio: 3 / 4, backgroundColor: colors.line },
   body: { padding: space.md },
-  price: { fontSize: 18, color: colors.ink, marginTop: space.sm, fontWeight: "600" },
+  name: { fontSize: 26, letterSpacing: -0.4 },
+  category: {
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 1.3,
+    textTransform: "uppercase",
+    color: colors.muted,
+    marginBottom: 4
+  },
+  price: { fontSize: 20, color: colors.ink, marginTop: space.sm, fontWeight: "600" },
   tagline: { marginTop: space.xs },
-  label: { fontSize: 12, fontWeight: "600", color: colors.inkSoft, marginBottom: space.sm, letterSpacing: 0.4 },
+  label: { fontSize: 12, fontWeight: "600", color: colors.label, marginBottom: space.sm, letterSpacing: 0.4 },
   sizes: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginBottom: space.md },
   size: {
     minWidth: 52,
     paddingHorizontal: space.md,
     paddingVertical: 10,
-    borderRadius: 4,
-    borderWidth: 1,
+        borderWidth: 1,
     borderColor: colors.line,
     alignItems: "center"
   },
@@ -179,8 +181,7 @@ const styles = StyleSheet.create({
   step: {
     width: 44,
     height: 44,
-    borderRadius: 4,
-    borderWidth: 1,
+        borderWidth: 1,
     borderColor: colors.line,
     alignItems: "center",
     justifyContent: "center"

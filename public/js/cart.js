@@ -26,7 +26,20 @@ const state = {
 // Signing in flips this and calls syncFromServer(), so the bag on this device and the bag on
 // the phone converge rather than one silently overwriting the other.
 let source = "local";
-let syncing = false;
+
+// Bumped on every local edit so a cross-device pull can tell whether anything changed here while it
+// was in flight. If so its result is stale and must not replace the newer local edit.
+let localRevision = 0;
+const noteLocalChange = () => {
+  localRevision += 1;
+};
+
+export const cartRevision = () => localRevision;
+
+// Server writes are queued rather than gated by a "busy" flag. A boolean guard dropped every
+// request raised while one was already in flight, so two quick clicks sent only the first and the
+// two devices drifted apart. Chaining the promises keeps them in order and loses none.
+let queue = Promise.resolve();
 
 const persist = () => {
   writeStorage(CART_KEY, state.cart);
@@ -36,28 +49,30 @@ const persist = () => {
 };
 
 // Writes to the server and adopts whatever it returns, so the response is the source of truth.
-// A network failure leaves the local bag alone: it is still in localStorage and will be
-// reconciled on the next successful call rather than lost.
-const push = async (path, options) => {
-  if (syncing) return;
-  const previous = syncing;
-  syncing = true;
-  try {
-    const payload = await api(path, options);
-    if (payload?.lines) {
-      state.cart = payload.lines;
-      persist();
+// Queued rather than run concurrently: a second change made while the first is in flight is still
+// sent, just after it. A network failure leaves the local bag alone: it is still in localStorage
+// and will be reconciled on the next successful call rather than lost.
+const push = (path, options) => {
+  if (source !== "server") return;
+  queue = queue.then(async () => {
+    try {
+      const payload = await api(path, options);
+      if (payload?.lines) {
+        // "synced" marks these lines as already known to the account, so a later sign-in does not
+        // merge them into the account bag a second time and inflate the quantities.
+        state.cart = payload.lines.map((line) => ({ ...line, synced: true }));
+        persist();
+      }
+    } catch {
+      // The local bag is still in localStorage and reconciles on the next successful call.
     }
-  } catch (error) {
-    if (previous === false) throw error;
-  } finally {
-    syncing = previous;
-  }
+  });
 };
 
 // Applies a change locally first so the drawer updates instantly, then reconciles with the
 // server. localStorage stays written so a signed-out guest, or a failed request, is not lost.
 const commit = (path, options) => {
+  noteLocalChange();
   persist();
   if (source === "server") push(path, options);
 };
@@ -124,20 +139,37 @@ export const cart = {
     state.cart = [];
     commit("/api/cart", { method: "DELETE" });
   },
+  // Every line, for placing an order.
   toPayload() {
     return state.cart.map((line) => ({ slug: line.slug, quantity: line.quantity, size: line.size }));
+  },
+
+  // Only lines this device added while signed out, for a merge. merge_cart adds quantities rather
+  // than replacing them, so sending lines the server already knows would inflate them.
+  toMergePayload() {
+    return state.cart
+      .filter((line) => line.slug && !line.synced)
+      .map((line) => ({ slug: line.slug, quantity: line.quantity, size: line.size }));
   },
 
   // Called after sign-in: fold whatever this device was holding as a guest into the account's
   // cart, then take the merged result. Quantities add rather than replace, so nothing is lost.
   async syncFromServer() {
-    const guestLines = state.cart.filter((line) => line.slug);
     source = "server";
+    // Lets any queued writes land first, so this pull cannot race ahead of them and overwrite
+    // them with the server's older copy.
+    await queue.catch(() => {});
+    // Only lines added on this device while signed out are merged. merge_cart adds quantities
+    // rather than replacing them, so re-merging lines that already came back from the server
+    // would inflate the bag on every page load. Lines adopted from a response are excluded.
+    const guestLines = state.cart.filter((line) => line.slug && !line.synced);
     try {
       const payload = guestLines.length
-        ? await api("/api/cart/merge", { method: "POST", body: { items: cart.toPayload() } })
+        ? await api("/api/cart/merge", { method: "POST", body: { items: cart.toMergePayload() } })
         : await api("/api/cart");
-      if (payload?.lines) state.cart = payload.lines;
+      if (payload?.lines) {
+        state.cart = payload.lines.map((line) => ({ ...line, synced: true }));
+      }
       persist();
       return state.cart;
     } catch {
@@ -152,6 +184,14 @@ export const cart = {
     source = "local";
     state.cart = [];
     persist();
+  },
+
+  // Pulls the account's bag again, for when the change was made on another device. Only safe once
+  // signed in: it replaces local state wholesale, so calling it as a guest would discard the bag
+  // held in this browser.
+  refresh() {
+    if (source !== "server") return Promise.resolve(state.cart);
+    return this.syncFromServer();
   },
 
   isServerBacked() {

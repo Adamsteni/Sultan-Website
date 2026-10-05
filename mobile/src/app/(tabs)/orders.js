@@ -1,8 +1,8 @@
-// Orders tab. Signed-in customers see their order history from the server; everyone else is
+﻿// Orders tab. Signed-in customers see their order history from the server; everyone else is
 // pointed at sign-in. This is the screen that proves the account is shared between web and
 // phone: the same orders appear here that the website shows.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { View, Text, FlatList, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { api, money, shortDate } from "../../lib/api";
@@ -18,8 +18,7 @@ export default function OrdersScreen() {
 
   // Re-fetched each time the tab comes into view, so an order placed on the website shows up
   // here as soon as the customer switches back.
-  useFocusEffect(
-    useEffect(() => {
+  useFocusEffect(useCallback(() => {
       let cancelled = false;
       (async () => {
         if (!session) {
@@ -42,8 +41,7 @@ export default function OrdersScreen() {
       return () => {
         cancelled = true;
       };
-    }, [session?.accessToken])
-  );
+    } , [session?.accessToken]));
 
   if (!session) {
     return (
@@ -83,7 +81,7 @@ export default function OrdersScreen() {
                 <Text style={styles.orderNumber}>{item.orderNumber}</Text>
                 <Text style={[styles.status, statusStyle(item.status)]}>{item.status}</Text>
               </View>
-              <Muted>{shortDate(item.createdAt)} · {item.items?.length || 0} item(s)</Muted>
+              <Muted>{shortDate(item.createdAt)} Â· {item.items?.length || 0} item(s)</Muted>
               <Text style={styles.total}>{money(item.totalKobo)}</Text>
             </Pressable>
           )}
@@ -102,7 +100,7 @@ const statusColors = {
   cancelled: colors.danger
 };
 
-const statusStyle = (status) => ({ color: statusColors[status] || colors.inkSoft });
+const statusStyle = (status) => ({ color: statusColors[status] || colors.label });
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
@@ -111,8 +109,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: space.md },
   card: {
     padding: space.md,
-    borderRadius: 6,
-    borderWidth: StyleSheet.hairlineWidth,
+        borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
     marginBottom: space.md,
     backgroundColor: colors.paper
@@ -126,3 +123,4 @@ const styles = StyleSheet.create({
   emptyButton: { marginTop: space.lg, minWidth: 200 },
   error: { color: colors.danger, padding: space.md, fontSize: 13 }
 });
+

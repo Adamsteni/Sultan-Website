@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   padded: { padding: space.lg, backgroundColor: colors.paper, flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.paper },
   status: { marginTop: space.xs, textTransform: "capitalize" },
-  section: { fontSize: 12, fontWeight: "700", color: colors.inkSoft, letterSpacing: 0.6, marginBottom: space.md },
+  section: { fontSize: 12, fontWeight: "700", color: colors.label, letterSpacing: 0.6, marginBottom: space.md },
   item: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   itemMain: { flex: 1 },
   itemName: { fontSize: 14, color: colors.ink },

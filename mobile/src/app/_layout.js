@@ -11,9 +11,13 @@ import { loadConfig } from "../lib/shop";
 import { initAuth } from "../lib/auth";
 import { cart } from "../lib/cart";
 import { colors } from "../components/ui";
+import { fontFamily, useBrandFonts } from "../lib/fonts";
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  // The site is set in Archivo, so the app waits for the same family before painting rather than
+  // flashing a system font and reflowing on arrival.
+  const [fontsLoaded] = useBrandFonts();
 
   useEffect(() => {
     let cancelled = false;
@@ -30,11 +34,11 @@ export default function RootLayout() {
     };
   }, []);
 
-  if (!ready) {
+  if (!ready || !fontsLoaded) {
     return (
       <SafeAreaProvider>
         <View style={styles.splash}>
-          <ActivityIndicator color={colors.ink} />
+          <ActivityIndicator color={colors.foreground} />
         </View>
         <StatusBar style="dark" />
       </SafeAreaProvider>
@@ -43,7 +47,12 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerStyle: { backgroundColor: colors.paper }, headerTitleStyle: { color: colors.ink } }}>
+      <Stack screenOptions={{
+        headerStyle: { backgroundColor: colors.background },
+        headerTitleStyle: { fontFamily: fontFamily.semibold, fontSize: 13, letterSpacing: 1.6, textTransform: "uppercase", color: colors.ink },
+        headerTintColor: colors.foreground,
+        contentStyle: { backgroundColor: colors.background }
+      }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="product/[slug]" options={{ title: "Product" }} />
         <Stack.Screen name="checkout" options={{ title: "Checkout" }} />
@@ -60,6 +69,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.cream
+    backgroundColor: colors.background
   }
 });

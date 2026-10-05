@@ -1,4 +1,6 @@
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createClient } from "@supabase/supabase-js";
 
 const base = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api").replace(/\/$/, "");
 
@@ -8,22 +10,22 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 export const apiBase = base;
 export const hasSupabase = Boolean(supabaseUrl && anonKey);
 
-// The Supabase browser client is reused here rather than importing @supabase/supabase-js
-// directly. The web app does the same: one code path, and no bundler complaints about the
-// package's Node-targeted entry points under Metro.
+// The Supabase client is created once and reused. Both imports are static rather than dynamic:
+// Metro's dev bundler resolves dynamic import() lazily, which during a hot reload leaves the
+// module registry out of step and throws "Requiring unknown module" on the phone. Everything is
+// bundled up front instead.
 let client = null;
 
-export async function supabaseClient() {
+export function supabaseClient() {
   if (client) return client;
   if (!hasSupabase) throw new Error("Supabase is not configured for the app.");
 
-  const { createClient } = await import("@supabase/supabase-js");
   client = createClient(supabaseUrl, anonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
-      storage: (await import("@react-native-async-storage/async-storage")).default
+      storage: AsyncStorage
     }
   });
   return client;
@@ -91,6 +93,26 @@ export function shortDate(value) {
     month: "short",
     year: "numeric"
   });
+}
+
+// Turns a product image path from the API into something React Native's Image can load.
+//
+// The API stores paths exactly as the website uses them -- "./img/product-men.jpg" -- because
+// they are relative to the site root. The app has no such root, so the API host is prepended.
+// Normalising the "./" prefix matters: naively joining would produce ".../netlify.app/./img/..."
+// which resolves to a 404.
+export function imageUrl(path) {
+  const fallback = `${siteOrigin()}/img/product-essential.jpg`;
+  if (!path || typeof path !== "string") return fallback;
+  if (/^https?:\/\//i.test(path)) return path;
+
+  const clean = path.replace(/^\.?\//, "");
+  return `${siteOrigin()}/${clean}`;
+}
+
+// The site's root, derived from the API URL by dropping the trailing /api.
+export function siteOrigin() {
+  return apiBase.replace(/\/api$/, "");
 }
 
 export const platformLabel = Platform.OS === "android" ? "Android" : "iOS";

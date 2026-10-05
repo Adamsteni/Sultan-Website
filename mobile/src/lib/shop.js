@@ -2,6 +2,8 @@
 // for checkout, and the provider the account screen should use. Kept separate from the cart
 // so a config fetch never triggers a cart write.
 
+import { api } from "./api";
+
 let config = {
   shopName: "Sultan Clothing",
   demoMode: true,
@@ -26,8 +28,7 @@ const publish = () => {
 
 export async function loadConfig() {
   try {
-    const payload = await import("./api").then((m) => m.api("/config"));
-    config = { ...config, ...payload };
+    config = { ...config, ...(await api("/config")) };
   } catch {
     // The defaults above keep the app usable if the config call fails.
   }

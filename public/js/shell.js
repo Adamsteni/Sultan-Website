@@ -4,7 +4,7 @@ import {
   onAuthChange,
   currentUser
 } from "./auth.js";
-import { cart, wishlist, setCatalog, openDrawer, closeDrawers, mountDrawers, bagIcon } from "./cart.js";
+import { cart, wishlist, setCatalog, openDrawer, closeDrawers, mountDrawers, bagIcon, cartRevision } from "./cart.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -55,6 +55,30 @@ function wireHeader() {
   document.addEventListener("sultan:cart", renderCounts);
   document.addEventListener("sultan:wishlist", renderCounts);
   renderCounts();
+}
+
+// The bag lives on the server once someone is signed in, so changes made on the app while this tab
+// sat in the background are invisible until it is refetched. Re-pull whenever the tab is looked at
+// again. Debounced, and skipped when this tab is the one that made the change, so a quantity
+// stepper does not fire a pull on every click.
+function watchForCrossDeviceChanges() {
+  let pending = null;
+  const pull = async () => {
+    const revision = cartRevision();
+    await cart.refresh();
+    // A local edit made while this was in flight is newer than what the server just returned, so
+    // the response is stale. Leave the newer local state alone; its own queued write will confirm.
+    if (cartRevision() === revision) renderCounts();
+  };
+  const schedule = () => {
+    if (!cart.isServerBacked()) return;
+    clearTimeout(pending);
+    pending = setTimeout(pull, 800);
+  };
+  window.addEventListener("focus", schedule);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) schedule();
+  });
 }
 
 function renderCounts() {
@@ -174,6 +198,7 @@ export async function mountShell() {
     toast("The catalogue could not be loaded. Is the server running?", { tone: "error" });
   }
   await initAuth();
+  watchForCrossDeviceChanges();
   onAuthChange((user) => {
     renderAccountButton(user);
     document.body.dataset.signedIn = user ? "true" : "false";

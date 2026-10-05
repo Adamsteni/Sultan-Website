@@ -94,7 +94,7 @@ export default function CheckoutScreen() {
         value={form[key]}
         onChangeText={set(key)}
         placeholder={options.placeholder || label}
-        placeholderTextColor={colors.inkFaint}
+        placeholderTextColor={colors.muted}
         style={[styles.input, fieldErrors[key] && styles.inputError]}
         autoCapitalize={options.capitalize || "words"}
         keyboardType={options.keyboardType || "default"}
@@ -180,13 +180,12 @@ const styles = StyleSheet.create({
   body: { padding: space.lg },
   padded: { padding: space.lg, backgroundColor: colors.paper, flex: 1, gap: space.md },
   lead: { marginTop: space.xs },
-  section: { fontSize: 12, fontWeight: "700", color: colors.inkSoft, letterSpacing: 0.6, marginBottom: space.md },
+  section: { fontSize: 12, fontWeight: "700", color: colors.label, letterSpacing: 0.6, marginBottom: space.md },
   field: { marginBottom: space.md },
-  label: { fontSize: 12, fontWeight: "600", color: colors.inkSoft, marginBottom: space.xs },
+  label: { fontSize: 12, fontWeight: "600", color: colors.label, marginBottom: space.xs },
   input: {
     height: 48,
-    borderRadius: 6,
-    borderWidth: 1,
+        borderWidth: 1,
     borderColor: colors.line,
     paddingHorizontal: space.md,
     fontSize: 15,
@@ -198,11 +197,11 @@ const styles = StyleSheet.create({
   states: { gap: space.sm, paddingBottom: space.md },
   state: { paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: 999, borderWidth: 1, borderColor: colors.line },
   stateActive: { backgroundColor: colors.ink, borderColor: colors.ink },
-  stateText: { fontSize: 13, color: colors.inkSoft },
+  stateText: { fontSize: 13, color: colors.label },
   stateTextActive: { color: colors.paper, fontWeight: "600" },
   note: { marginBottom: space.md },
   summary: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  summaryLabel: { fontSize: 14, color: colors.inkSoft },
+  summaryLabel: { fontSize: 14, color: colors.label },
   summaryValue: { fontSize: 14, color: colors.ink },
   strong: { fontSize: 16, fontWeight: "700", color: colors.ink },
   footer: {

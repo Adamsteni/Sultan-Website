@@ -280,14 +280,32 @@ export function createSupabaseRepository() {
     // Only slug, size and quantity are stored; name, price and image are joined from products
     // on read so a cart can never hold a stale price.
 
+    // PostgREST can only embed a related table when a foreign key exists to discover it, and
+    // cart_items has no FK to products.slug. Asking for the join inline fails with PGRST200
+    // ("Could not find a relationship"), which made every cart read 422: the write landed, then the
+    // read-back blew up, so the client saw a failure and kept its local copy. Reading the bag must
+    // not depend on a relationship the schema never declared, so the rows and the products they
+    // point at are fetched separately and joined here.
     async getCart(userId) {
-      const { data, error } = await db
+      const { data: rows, error } = await db
         .from("cart_items")
-        .select("slug,size,quantity,products(slug,name,image_url,price_kobo,stock,active)")
+        .select("slug,size,quantity")
         .eq("user_id", userId)
         .order("created_at");
       throwOnError({ error, context: "cart_items" });
-      return (data || []).map(cartLine);
+      if (!rows || rows.length === 0) return [];
+
+      const slugs = [...new Set(rows.map((row) => row.slug))];
+      const { data: products, error: productError } = await db
+        .from("products")
+        .select("slug,name,image_url,price_kobo,stock,active")
+        .in("slug", slugs);
+      throwOnError({ error: productError, context: "products" });
+
+      const bySlug = new Map((products || []).map((product) => [product.slug, product]));
+      // A slug with no matching product still yields a line, so an item whose product was deleted
+      // shows up as unavailable rather than silently vanishing from the bag.
+      return rows.map((row) => cartLine({ ...row, products: bySlug.get(row.slug) }));
     },
 
     async setCartLine(userId, slug, size, quantity) {

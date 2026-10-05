@@ -107,6 +107,30 @@ create unique index if not exists cart_items_user_slug_size_idx
   on public.cart_items (user_id, slug, size);
 create index if not exists cart_items_user_idx on public.cart_items (user_id);
 
+-- The bag stores only slug/size/quantity and reads name, price and image from products. That join
+-- is done in the server rather than inline in a PostgREST select, because PostgREST can only embed a
+-- related table when it can discover a foreign key. Without this constraint there is no such
+-- relationship to discover and an embedded select fails with PGRST200, so the constraint is what
+-- makes the declared design possible at all.
+--
+-- Guarded so it can be re-run against a database that already has it. Any cart rows whose slug no
+-- longer exists in products would block the add, so those are dropped first: they point at a
+-- product that is gone and can never be shown or bought.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'cart_items_slug_fkey'
+  ) then
+    delete from public.cart_items ci
+    where not exists (select 1 from public.products p where p.slug = ci.slug);
+
+    alter table public.cart_items
+      add constraint cart_items_slug_fkey
+      foreign key (slug) references public.products (slug)
+      on update cascade on delete cascade;
+  end if;
+end $$;
+
 -- -----------------------------------------------------------------------------
 -- merge_cart — folds a client-side guest bag into the account's cart.
 --

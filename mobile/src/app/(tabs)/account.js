@@ -51,7 +51,7 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, padding: space.lg, backgroundColor: colors.paper },
   name: { fontSize: 22, fontWeight: "700", color: colors.ink, marginBottom: 4 },
-  heading: { fontSize: 12, fontWeight: "600", color: colors.inkSoft, letterSpacing: 0.4, marginBottom: space.xs },
+  heading: { fontSize: 12, fontWeight: "600", color: colors.label, letterSpacing: 0.4, marginBottom: space.xs },
   explainer: { marginBottom: space.sm },
   actions: { marginTop: space.lg },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", padding: space.lg, backgroundColor: colors.paper },

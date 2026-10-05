@@ -1,11 +1,12 @@
-// Bag tab. Reads the same store the product pages write to, so what is shown here is the
+﻿// Bag tab. Reads the same store the product pages write to, so what is shown here is the
 // server's copy whenever the customer is signed in.
 
 import { View, Text, Image, Pressable, FlatList, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useCart } from "../../lib/cart";
-import { api, money } from "../../lib/api";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
+import { cart as cartStore, useCart } from "../../lib/cart";
+import { api, money, imageUrl } from "../../lib/api";
 import { isSignedIn } from "../../lib/auth";
 import { colors, space, Button, Muted, Divider } from "../../components/ui";
 
@@ -13,6 +14,14 @@ export default function CartScreen() {
   const { lines, count, subtotalKobo, deliveryKobo, totalKobo } = useCart();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // Pulls the account's bag each time the tab comes into view, so anything added on the website
+  // while this tab sat in the background is here on return rather than after a manual reload.
+  useFocusEffect(
+    useCallback(() => {
+      if (isSignedIn()) cartStore.syncFromServer();
+    }, [])
+  );
 
   const checkout = () => {
     if (!isSignedIn()) {
@@ -40,28 +49,28 @@ export default function CartScreen() {
         contentContainerStyle={[styles.list, { paddingBottom: 220 }]}
         renderItem={({ item }) => (
           <View style={styles.line}>
-            <Image source={{ uri: absolute(item.image) }} style={styles.image} resizeMode="cover" />
+            <Image source={{ uri: imageUrl(item.image) }} style={styles.image} resizeMode="cover" />
             <View style={styles.details}>
               <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
               {item.size ? <Muted>Size {item.size}</Muted> : null}
               <Muted>{money(item.unitPriceKobo)} each</Muted>
 
               <View style={styles.controls}>
-                <Pressable
-                  onPress={() => cart.setQuantity(item.slug, item.size, item.quantity - 1)}
+<Pressable
+                  onPress={() => cartStore.setQuantity(item.slug, item.size, item.quantity - 1)}
                   style={styles.step}
                 >
-                  <Text style={styles.stepText}>−</Text>
+                  <Text style={styles.stepText}>âˆ’</Text>
                 </Pressable>
                 <Text style={styles.quantity}>{item.quantity}</Text>
                 <Pressable
-                  onPress={() => cart.setQuantity(item.slug, item.size, item.quantity + 1)}
+                  onPress={() => cartStore.setQuantity(item.slug, item.size, item.quantity + 1)}
                   style={styles.step}
                   disabled={item.quantity >= Math.min(item.stock ?? 20, 20)}
                 >
                   <Text style={styles.stepText}>+</Text>
                 </Pressable>
-                <Pressable onPress={() => cart.remove(item.slug, item.size)} style={styles.remove}>
+                <Pressable onPress={() => cartStore.remove(item.slug, item.size)} style={styles.remove}>
                   <Text style={styles.removeText}>Remove</Text>
                 </Pressable>
               </View>
@@ -91,18 +100,11 @@ function Row({ label, value, strong }) {
   );
 }
 
-function absolute(path) {
-  if (!path) return "https://sultanng.netlify.app/img/product-essential.jpg";
-  if (/^https?:\/\//.test(path)) return path;
-  const base = (process.env.EXPO_PUBLIC_API_URL || "").replace(/\/api$/, "");
-  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   list: { padding: space.md },
   line: { flexDirection: "row", paddingVertical: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
-  image: { width: 72, height: 88, borderRadius: 4, backgroundColor: colors.cream },
+  image: { width: 72, height: 96, backgroundColor: colors.line },
   details: { flex: 1, paddingHorizontal: space.md, gap: 2 },
   name: { fontSize: 15, fontWeight: "600", color: colors.ink },
   controls: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm },
@@ -123,7 +125,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line
   },
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  rowLabel: { fontSize: 14, color: colors.inkSoft },
+  rowLabel: { fontSize: 14, color: colors.label },
   rowValue: { fontSize: 14, color: colors.ink },
   rowStrong: { fontSize: 16, fontWeight: "700", color: colors.ink },
   checkout: { marginTop: space.md },
@@ -131,3 +133,6 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 20, fontWeight: "700", color: colors.ink, marginBottom: space.sm },
   emptyButton: { marginTop: space.lg, minWidth: 220 }
 });
+
+
+

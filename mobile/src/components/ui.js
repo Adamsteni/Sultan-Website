@@ -1,24 +1,67 @@
-// App-wide look: colours, spacing and a few shared building blocks, so every screen matches the
-// website's calm cream-and-ink styling without repeating it.
+// App-wide look, taken directly from the website's stylesheet so the two stay recognisably the
+// same brand. The values here are the site's own CSS custom properties, and the house rules are
+// copied with them: square corners everywhere, generous uppercase letterspacing on small labels,
+// and heavy weights reserved for large display headings.
 
 import { StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
+import { fontFamily } from "../lib/fonts";
 
+// Mirrors :root in public/styles.css
 export const colors = {
-  ink: "#0F0F10",
-  inkSoft: "#4A4A4E",
-  inkFaint: "#7C7C82",
-  paper: "#FFFFFF",
-  cream: "#F6F3EE",
-  line: "#E4DFD7",
-  accent: "#8A6A3B",
+  background: "#EFEDE9",
+  paper: "#F6F5F2",
+  foreground: "#000000",
+  ink: "#141414",
+  muted: "#6C6C68",
+  label: "#4E4C48",
+  canvas: "#DEDBD5",
+  line: "#C9C6C0",
+  accent: "#A8874C",
+  onDark: "#E9E6E0",
   danger: "#A3312A",
   ok: "#2F6B3A"
 };
 
-export const space = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+// The site pads with clamp(20px, 4.6vw, 56px). A phone never reaches the upper bound, so the
+// lower one is used as the standard gutter.
+export const space = { xs: 6, sm: 10, md: 20, lg: 30, xl: 44 };
+export const gutter = 20;
 
-export function Title({ children, style }) {
-  return <Text style={[styles.title, style]}>{children}</Text>;
+// Every full-width band on the homepage gets the same vertical padding so the page reads as one
+// rhythm instead of a stack of unrelated blocks. The site's section padding tops out around
+// 48px on a phone, so that is where this sits.
+export const sectionPad = space.xl;
+
+// Small uppercase labels are the site's most repeated device (nav, buttons, section eyebrows,
+// filters). One helper keeps the tracking and casing identical everywhere.
+export function labelStyle(size = 11, color = colors.ink, spacing = 2.4) {
+  return {
+    fontFamily: fontFamily.semibold,
+    fontSize: size,
+    letterSpacing: spacing,
+    textTransform: "uppercase",
+    color
+  };
+}
+
+export function Title({ children, style, size = 40 }) {
+  return (
+    <Text
+      style={[
+        styles.display,
+        { fontSize: size },
+        style
+      ]}
+    >
+      {children}
+    </Text>
+  );
+}
+
+export function Label({ children, style, size = 11, color = colors.label, spacing = 2.4 }) {
+  return (
+    <Text style={[labelStyle(size, color, spacing), style]}>{children}</Text>
+  );
 }
 
 export function Muted({ children, style, numberOfLines }) {
@@ -44,7 +87,7 @@ export function Button({ title, onPress, disabled, busy, variant = "solid", styl
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={solid ? colors.paper : colors.ink} size="small" />
+        <ActivityIndicator color={solid ? colors.background : colors.ink} size="small" />
       ) : (
         <Text style={[styles.buttonText, !solid && styles.buttonTextGhost]}>{title}</Text>
       )}
@@ -53,7 +96,7 @@ export function Button({ title, onPress, disabled, busy, variant = "solid", styl
 }
 
 export function Banner({ tone = "info", children }) {
-  const tint = tone === "error" ? colors.danger : tone === "ok" ? colors.ok : colors.inkSoft;
+  const tint = tone === "error" ? colors.danger : tone === "ok" ? colors.ok : colors.muted;
   return (
     <View style={[styles.banner, { borderLeftColor: tint }]}>
       <Text style={[styles.bannerText, { color: tint }]}>{children}</Text>
@@ -70,16 +113,19 @@ export function Divider() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
+  // Matches .season h2 / .shop h2 / .newsletter h2 -- weight 800, tight leading, negative tracking.
+  display: {
+    fontFamily: fontFamily.extrabold,
     color: colors.ink,
-    letterSpacing: -0.4
+    lineHeight: 0.92,
+    letterSpacing: -1.2,
+    textTransform: "uppercase"
   },
   muted: {
+    fontFamily: fontFamily.regular,
     fontSize: 14,
-    lineHeight: 20,
-    color: colors.inkFaint
+    lineHeight: 21,
+    color: colors.muted
   },
   row: {
     flexDirection: "row",
@@ -90,44 +136,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.line,
     marginVertical: space.md
   },
+  // Matches .button: min-height 46px, black fill, 0.2em tracking, and no border radius anywhere.
   button: {
-    minHeight: 50,
-    borderRadius: 6,
+    minHeight: 46,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: space.md,
+    paddingHorizontal: 30,
     flexDirection: "row"
   },
   buttonSolid: {
-    backgroundColor: colors.ink
+    backgroundColor: colors.foreground
   },
   buttonGhost: {
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.paper
+    borderColor: colors.foreground,
+    backgroundColor: "transparent"
   },
   buttonDisabled: {
-    opacity: 0.5
+    opacity: 0.4
   },
   buttonPressed: {
-    opacity: 0.8
+    opacity: 0.7
   },
   buttonText: {
-    color: colors.paper,
-    fontSize: 15,
-    fontWeight: "600"
+    fontFamily: fontFamily.semibold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+    textTransform: "uppercase",
+    color: colors.background
   },
   buttonTextGhost: {
     color: colors.ink
   },
   banner: {
-    backgroundColor: colors.cream,
-    borderLeftWidth: 3,
-    borderRadius: 4,
+    backgroundColor: colors.paper,
+    borderLeftWidth: 2,
     padding: space.md,
     marginVertical: space.sm
   },
   bannerText: {
+    fontFamily: fontFamily.regular,
     fontSize: 14,
     lineHeight: 20
   }

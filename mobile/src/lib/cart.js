@@ -15,7 +15,12 @@ const KEY = "sultan.cart";
 let lines = [];
 let user = null;
 let loaded = false;
-let syncing = false;
+
+// Server writes are queued rather than gated by a "busy" flag. A boolean guard dropped every
+// request that arrived while one was in flight, so tapping add twice quickly left the second item
+// on the device only: the bag looked right on the phone but never reached the account, and the
+// website then disagreed. Chaining the promises sends them in order and loses none.
+let queue = Promise.resolve();
 
 const listeners = new Set();
 
@@ -75,21 +80,23 @@ const save = () => {
 };
 
 // Applies a local change first so the UI updates immediately, then reconciles with the server.
-// A failed request is left to be resolved by the next action or the next sync.
-const push = async (path, options) => {
-  if (syncing || !user) return;
-  syncing = true;
-  try {
-    const payload = await api(path, options);
-    if (Array.isArray(payload?.lines)) {
-      lines = payload.lines;
-      save();
+// Changes are appended to a queue so a second tap while the first request is still in flight is
+// still sent, just after it. A failed request is left to be resolved by the next action or sync.
+const push = (path, options) => {
+  if (!user) return;
+  queue = queue.then(async () => {
+    try {
+      const payload = await api(path, options);
+      if (Array.isArray(payload?.lines)) {
+        // "synced" marks these lines as already known to the account, so signing in again does not
+        // merge them a second time.
+        lines = payload.lines.map((line) => ({ ...line, synced: true }));
+        save();
+      }
+    } catch {
+      // Keep the local bag; it is saved locally and merged again later.
     }
-  } catch {
-    // Keep the local bag; it is saved locally and merged again later.
-  } finally {
-    syncing = false;
-  }
+  });
 };
 
 const commit = (path, options) => {
@@ -164,7 +171,13 @@ const quantityOf = (slug, size) => {
 // Called after sign-in. Anything held on this device before signing in is merged into the
 // account's bag, so signing in on a phone that already had items does not silently drop them.
 const syncFromServer = async () => {
-  const held = lines.filter((line) => line.slug);
+  // Waits for any queued writes first, otherwise a pull could land before the last change was
+  // sent and overwrite it with the server's older copy.
+  await queue.catch(() => {});
+  // Only lines this device added while signed out are merged. merge_cart adds quantities rather
+  // than replacing them, so re-merging lines that already came from the server would inflate them
+  // every time the app is opened. Lines already adopted from a response are therefore excluded.
+  const held = lines.filter((line) => line.slug && !line.synced);
   try {
     const payload = held.length
       ? await api("/cart/merge", {
@@ -172,7 +185,9 @@ const syncFromServer = async () => {
           body: { items: held.map((line) => ({ slug: line.slug, size: line.size, quantity: line.quantity })) }
         })
       : await api("/cart");
-    if (Array.isArray(payload?.lines)) lines = payload.lines;
+    if (Array.isArray(payload?.lines)) {
+      lines = payload.lines.map((line) => ({ ...line, synced: true }));
+    }
     save();
   } catch {
     // Signed in but the bag could not be fetched: keep the local copy and retry later.
