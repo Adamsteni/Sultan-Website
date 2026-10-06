@@ -56,11 +56,11 @@ export default function CartScreen() {
               <Muted>{money(item.unitPriceKobo)} each</Muted>
 
               <View style={styles.controls}>
-<Pressable
+                <Pressable
                   onPress={() => cartStore.setQuantity(item.slug, item.size, item.quantity - 1)}
                   style={styles.step}
                 >
-                  <Text style={styles.stepText}>âˆ’</Text>
+                  <Text style={styles.stepText}>-</Text>
                 </Pressable>
                 <Text style={styles.quantity}>{item.quantity}</Text>
                 <Pressable
